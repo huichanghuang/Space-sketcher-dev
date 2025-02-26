@@ -1,0 +1,14 @@
+[tool.poetry]
+name = "space-sketcher"
+version = "0.1.0"
+description = ""
+authors = ["huichanghuang <huang.huichang@leadhealthcare.ai>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
