@@ -187,6 +187,19 @@ def logfunc(func):
         return result
     return wrapper
 
+def gunzip(in_file):
+    """
+    命令行 gunzip 命令
+    """
+    import subprocess
+    import tempfile
+
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".txt") as temp_file:
+            subprocess.check_call(f"gunzip -c {in_file} > {temp_file.name}", shell=True)
+            return temp_file.name
+    except Exception as e:
+        raise ValueError(f"解压缩文件出错: {e}")
 
 def judgeFilexits(*args):
     # Flatten args and filter out empty strings

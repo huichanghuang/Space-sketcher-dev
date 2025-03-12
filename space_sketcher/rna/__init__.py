@@ -1,4 +1,5 @@
 _pipe = [
+    "rna"
     "oligo",
     'count',
     'analysis',

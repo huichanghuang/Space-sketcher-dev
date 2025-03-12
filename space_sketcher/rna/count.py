@@ -1,40 +1,133 @@
 import os
+import subprocess
+from loguru import logger
+from pathlib import Path
 
 class Count:
     def __init__(self,args):
-        self.name = args.name
+        self.rna1 = args.rna1
+        self.rna2 = args.rna2
         self.threads = args.threads
+        self.name = args.name
+        self.chemistry = args.chemistry
+        self.whitelist = args.whitelist
+        self.mapparams = args.mapparams
+        self.genomeDir = args.genomeDir
+        self.gtf = args.gtf
+        self.chrMT = args.chrMT
+        self.no_introns = args.no_introns
+        self.outunmappedreads = args.outunmappedreads
+        self.end5= args.end5
         self.calling_method = args.calling_method
         self.expectcells = args.expectcells
         self.forcecells = args.forcecells
         self.minumi = args.minumi
         self.outdir = os.path.abspath(os.path.join(args.outdir,args.name))
-    
+
+    def Prepare_mapping_params(self) -> str:
+        """
+        Check the chemistry and prepare mapping parameters.
+        Returns:
+            str: The mapping parameters.
+        """
+        ###load function
+        from space_sketcher.tools.utils import gunzip
+
+        mapping_params = ""
+        if self.chemistry == "10X":
+            mapping_params += "--soloType CB_UMI_Simple "
+            mapping_params += "--soloCBstart 1 --soloCBlen 16 --soloUMIstart 17 --soloUMIlen 12 "
+            mapping_params += "--soloCBmatchWLtype 1MM_multi_Nbase_pseudocounts --soloBarcodeReadLength 0 "
+        elif self.chemistry == "leader_v1":
+            mapping_params += "--soloType CB_UMI_Complex "
+            mapping_params += "--soloCBposition 0_0_0_9 0_10_0_19 --soloUMIposition 0_20_0_29 "
+            mapping_params += "--soloCBmatchWLtype EditDist_2 "
+        elif self.chemistry == "other":
+            if self.mapparams == "":
+                print("Please check if chemistry and mapparams provided in proper way!")
+        else:
+            print("Not available chemistry")
+
+        mapping_params += self.mapparams
+        ###to avoid STAR memery error
+        if self.whitelist.endswith(".gz"):
+            self.whitelist = gunzip(self.whitelist)
+
+        ###add whitelist
+        if "--soloType CB_UMI_Simple " in mapping_params:
+            mapping_params += f"--soloCBwhitelist {self.whitelist} "
+        elif "--soloType CB_UMI_Complex " in mapping_params:
+            mapping_params += f"--soloCBwhitelist {self.whitelist} {self.whitelist} "
+        else:
+            ##log
+            print("Please check if chemistry and mapparams provided in proper way!")
+
+        return mapping_params
+        
     def run(self):
         print("test count")
-        # ### import lib
-        # from dnbc4tools.tools.utils import str_mkdir,logging_call,judgeFilexits, get_formatted_time,rm_temp, create_index
+        ### import lib
+        from space_sketcher.tools.utils import str_mkdir,logging_call,judgeFilexits, get_formatted_time,rm_temp, create_index,gunzip
         # from dnbc4tools.rna.src.singlecell_summary import cut_umi,generateCellSummary
         # from dnbc4tools.tools.cal_saturation import sub_sample_cDNA_rna
         # from dnbc4tools.tools.cell_calling import cell_calling
         # from dnbc4tools.tools.plot_draw import merge_graph
         # from dnbc4tools.tools.combineBeads import similarity_droplet_file,barcodeTranslatefile
-        # from dnbc4tools.__init__ import __root_dir__
+        from space_sketcher.__init__ import __root_dir__
 
-        # ### run
-        # judgeFilexits(
-        #     '%s/01.data/final_sorted.bam'%self.outdir,
-        #     '%s/01.data/cDNA.sequencing.report.csv'%self.outdir,
-        #     '%s/01.data/CB_UB_count.txt'%self.outdir,
-        #     '%s/01.data/beads_stat.txt'%self.outdir
-        #     )
+        ### run
+        judgeFilexits(
+            self.rna1,
+            self.rna2,
+            self.whitelist,
+            self.genomeDir,
+            self.gtf
+            )
+           
+        str_mkdir('%s/01.count'%self.outdir)
+        str_mkdir('%s/log'%self.outdir)
+        str_mkdir('%s/log/.temp'%self.outdir)
+        os.environ[ 'MPLCONFIGDIR' ] = '%s/log/.temp'%self.outdir
+        os.environ[ 'NUMBA_CACHE_DIR' ] = '%s/log/.temp'%self.outdir
         
-        # str_mkdir('%s/02.count'%self.outdir)
-        # str_mkdir('%s/log'%self.outdir)
-        # str_mkdir('%s/log/.temp'%self.outdir)
-        # os.environ[ 'MPLCONFIGDIR' ] = '%s/log/.temp'%self.outdir
-        # os.environ[ 'NUMBA_CACHE_DIR' ] = '%s/log/.temp'%self.outdir
+        star_version = subprocess.check_output(f"{__root_dir__}/software/STAR --version", shell=True)
+        logger.info(f"STAR 版本号：{star_version.decode('utf8')}")
 
+        mapping_pars = self.Prepare_mapping_params()
+        STAR_cmd = (
+            f"{__root_dir__}/software/STAR "
+            f"--runMode alignReads "
+            "--soloFeatures GeneFull_Ex50pAS "
+            "--quantMode GeneCounts "
+            "--soloCellFilter  EmptyDrops_CR"
+            "--outFilterScoreMin 30 "
+            "--soloStrand Unstranded "
+            "--readFilesCommand zcat "
+            "--soloCellReadStats Standard "
+            "--soloMultiMappers EM "
+            "--soloUMIdedup 1MM_CR "
+            "--soloUMIfiltering MultiGeneUMI_CR "
+            "--clipAdapterType CellRanger4 "
+            "--outSAMtype BAM SortedByCoordinate "
+            "--outSAMattributes CR CY UR UY NH HI nM AS GX GN gx gn CB UB sS sQ sM "
+            f"{mapping_pars} "
+            f"--readFilesIn {self.rna2} {self.rna1} "
+            f"--genomeDir {self.genomeDir} "
+            f"--outFileNamePrefix {self.gtf}/ "
+            f"--runThreadN {self.threads} "
+            "--outBAMsortingThreadN 6 "
+        )
+
+        subprocess.check_call(STAR_cmd, shell=True)
+        ###change output directory permissions
+        chmod_cmd = f"chmod -R a+r {self.outdir}/Solo.out && chmod a+x $(find {self.outdir}/Solo.out -type d)"
+        subprocess.check_call(chmod_cmd, shell=True)
+        
+        # 对 STARsolo 文件进行压缩
+        cmd = f"gzip {self.outdir}/Solo.out/GeneFull_Ex50pAS/raw/* && gzip {self.outdir}/Solo.out/GeneFull_Ex50pAS/filtered/*"
+        subprocess.check_call(cmd, shell=True)
+
+        (Path(self.outdir) / ".STAR.done").touch()
         # ## filter oligo
         # print(f'\n{get_formatted_time()}\n'
         #     f'Calculating bead similarity and merging beads within the same droplet.')
@@ -184,23 +277,94 @@ class Count:
 def count(args):
     Count(args).run()
 
-def helpInfo_count(parser):
+
+def helpInfo_data(parser):
     parser.add_argument(
-        '--name',
-        metavar='NAME',
-        help='sample name.'
+        '-n','--name', 
+        metavar='STR',
+        help='Sample name.', 
+        type=str,
+        required=True
         )
     parser.add_argument(
-        '--threads',
-        metavar='INT',
-        help='Analysis threads. [default: 4].',
-        type=int,default=4
-        )
-    parser.add_argument(
-        '--outdir',
-        metavar='DIR',
-        help='output dir, [default: current directory].',
+        '-o', '--outdir', 
+        metavar='PATH',
+        help='Output diretory, [default: current directory].', 
         default=os.getcwd()
+        )
+    parser.add_argument(
+        '-r1', '--rna1',
+        metavar='FASTQ',
+        help='RNA R1 fastq file, use commas to separate multiple files.', 
+        required=True
+        )
+    parser.add_argument(
+        '-r2', '--rna2',
+        metavar='FASTQ',
+        help='RNA R2 fastq file, use commas to separate multiple files, the files order needs to be consistent with rna1.', 
+        required=True
+        )
+    parser.add_argument(
+        '-c', '--chemistry',
+        metavar='STR',
+        choices=["10X","leader_v1","other"],
+        help='Chemistry version, can be "10X", "leader_v1", "other". If set to other, needs to be used with --mapparams. [default: leader_v1].',
+        default='leader_v1'
+        )
+    parser.add_argument(
+        '-w', '--whitelist',
+        metavar='STR',
+        help='Path to the cell barcode whitelist file.',
+        required=True
+        )
+    parser.add_argument(
+        '-m', '--mapparams',
+        metavar='STR',
+        help='Additional STAR mapping parameters. must be provide while setting chemistry to other.',
+        default=''
+        )
+    parser.add_argument(
+        '-t', '--threads',
+        type=int, 
+        metavar='INT',
+        default=4,
+        help='Number of threads to use, [default: 4].'
+        )
+    parser.add_argument(
+        '-G', '--genomeDir',
+        type=str, 
+        metavar='PATH',
+        help='Path to the directory where genome files are stored.',
+        required=True
+        )
+    parser.add_argument(
+        '-g', '--gtf',
+        type=str, 
+        metavar='PATH',
+        help='Path to the directory where genome files are stored.',
+        required=True
+        )
+    parser.add_argument(
+        '--chrMT',
+        type=str, 
+        metavar='PATH',
+        help='Path to the directory where genome files are stored.',
+        required=True
+        )
+    parser.add_argument(
+        '--no_introns', 
+        action='store_true',
+        help='Not include intronic reads in count.'
+        )
+    parser.add_argument(
+        '--outunmappedreads',
+        action='store_true',
+        help='Output of unmapped reads.'
+        )
+    parser.add_argument(
+        '--end5', 
+        action='store_true',
+        help='Analyze 5-end single-cell transcriptome data.'
         )
     parser.add_argument(
         '--calling_method',

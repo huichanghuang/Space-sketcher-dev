@@ -8,6 +8,9 @@ from subprocess import check_call
 # from dnbc4tools.tools.utils import judgeFilexits, change_path
 # from dnbc4tools.__init__ import __root_dir__
 # from dnbc4tools.tools.mkgtf import *
+from space_sketcher.tools.utils import judgeFilexits, change_path
+from space_sketcher.__init__ import __root_dir__
+from space_sketcher.tools.mkgtf import *
 
 def count_chromosomes(genome_file):
     chromosomes = set()
@@ -40,7 +43,7 @@ def star_index(fasta,gtf,genomeDir,star_program,limitram,threads):
     ]
     star_cmd_str = ' '.join(star_cmd)
 
-    print('STAR verison: 2.7.2b')
+    print('STAR verison: 2.7.11b')
     print('runMode: genomeGenerate')
     print('runThreadN: %s'%threads)
     print('limitGenomeGenerateRAM: %s'%limitram)
@@ -125,14 +128,13 @@ class Ref:
         self.noindex = args.noindex
 
     def run(self):
-        print("test mkref")
-        # change_path()
-        # judgeFilexits(self.ingtf,self.fasta)
-        # self.genomeDir = os.path.abspath(self.genomeDir)
-        # if not self.noindex:
-        #     star_index(self.fasta,self.ingtf,self.genomeDir,"%s/software/scStar"%__root_dir__,self.limitram,self.threads)
-        # write_config(self.genomeDir,self.species,self.chrM,self.fasta,self.ingtf)
-        # print("\033[0;32;40mAnalysis Complete\033[0m")
+        change_path()
+        judgeFilexits(self.ingtf,self.fasta)
+        self.genomeDir = os.path.abspath(self.genomeDir)
+        if not self.noindex:
+            star_index(self.fasta,self.ingtf,self.genomeDir,"%s/software/STAR"%__root_dir__,self.limitram,self.threads)
+        write_config(self.genomeDir,self.species,self.chrM,self.fasta,self.ingtf)
+        print("\033[0;32;40mAnalysis Complete\033[0m")
 
 def mkref(args):
     Ref(args).run()
@@ -184,3 +186,33 @@ def helpInfo_mkref(parser):
         help='Only generate ref.json without constructing the genome index.'
         )
     return parser
+
+
+
+# ####cell-sketcher
+# import subprocess
+# from loguru import logger
+# from pathlib import Path
+# from cell_sketcher.utils import get_package_dir
+
+# source_dir = get_package_dir()
+
+# def build_rna_star_index(args):
+#     genome = Path(args.genome)
+#     if genome.exists():
+#         raise ValueError(f"目录 {genome} 已存在，删除文件夹后重新运行")
+#     genome.mkdir(parents=True,exist_ok=False)
+#     star_bin = source_dir / "bin" / "STAR"
+#     cmd = (
+#         f'{star_bin} --runMode genomeGenerate '
+#         f'--runThreadN {args.thread} '
+#         f'--genomeDir {genome} '
+#         f'--genomeFastaFiles {args.fasta} '
+#         f'--sjdbGTFfile {args.gtf} '
+#     )
+#     logger.info(f"构建索引命令：{cmd}")
+#     subprocess.check_call(cmd, shell=True)
+
+#     if args.mt_genes is not None:
+#         subprocess.check_call(['cp -f', args.mt_genes, str(genome / "mtGene.txt")])
+#     return None
