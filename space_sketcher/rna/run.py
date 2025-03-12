@@ -30,20 +30,20 @@ class Runpipe:
     def runpipe(self):
         print("test run")
         ### import lib
-        # from dnbc4tools.tools.utils import str_mkdir,judgeFilexits,read_json,start_print_cmd,bin_path
-        # from dnbc4tools.__init__ import __root_dir__
+        from space_sketcher.tools.utils import str_mkdir,judgeFilexits,read_json,start_print_cmd,bin_path
+        from space_sketcher.__init__ import __root_dir__
 
         # ### run
-        # judgeFilexits('%s/ref.json'%self.genomeDir)
-        # indexConfig = read_json('%s/ref.json'%self.genomeDir)
-        # genomeDir = indexConfig['genomeDir']
-        # gtf = indexConfig['gtf']
-        # chrmt = indexConfig['chrmt']
-        # species = indexConfig['species']
-        # mtgenes = indexConfig['mtgenes']
-        # judgeFilexits(self.cDNAr1,self.cDNAr2,self.oligor1,self.oligor2,genomeDir,gtf)
-        # if mtgenes != "None":
-        #     judgeFilexits(mtgenes)
+        judgeFilexits('%s/ref.json'%self.genomeDir)
+        indexConfig = read_json('%s/ref.json'%self.genomeDir)
+        genomeDir = indexConfig['genomeDir']
+        gtf = indexConfig['gtf']
+        chrmt = indexConfig['chrmt']
+        species = indexConfig['species']
+        mtgenes = indexConfig['mtgenes']
+        judgeFilexits(self.cDNAr1,self.cDNAr2,self.oligor1,self.oligor2,genomeDir,gtf)
+        if mtgenes != "None":
+            judgeFilexits(mtgenes)
 
         # data_cmd = [
         #     f"{bin_path()}/dnbc4tools rna data",
