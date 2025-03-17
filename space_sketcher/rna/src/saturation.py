@@ -13,6 +13,7 @@ from loguru import logger
 from space_sketcher.tools.utils import judgeFilexits
 from space_sketcher.__init__ import __root_dir__
 from pathlib import Path
+import subprocess
 """
 This function calculates various saturation statistics for scRNA-seq data,
 such as mean reads per cell, median genes per cell, sequencing saturation,
@@ -177,29 +178,6 @@ def plot_saturation(inputfile, outdir):
     return
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(description='sequencing saturation')
-    parser.add_argument('--indir', 
-        metavar='FILE', 
-        type=str,
-        help='input directory'
-        )
-    parser.add_argument(
-        '--threads',
-        metavar='INT',
-        help='Analysis threads. [default: 4].',
-        type=int,default=4
-        )
-    parser.add_argument(
-        '--lines',
-        metavar='INT',
-        help='How many lines to calculate saturation',
-        type=int,default=50000000
-        )
-    args = parser.parse_args()
-    return args
-
-
 def count_saturation(indir, threads, lines):
 
     prepare_readinfo(indir, threads, lines)
@@ -229,6 +207,28 @@ def count_saturation(indir, threads, lines):
     final_res.to_csv(resultsfile, sep="\t", index=False)
     plot_saturation(resultsfile, indir)
 
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='sequencing saturation')
+    parser.add_argument('--indir', 
+        metavar='FILE', 
+        type=str,
+        help='input directory'
+        )
+    parser.add_argument(
+        '--threads',
+        metavar='INT',
+        help='Analysis threads. [default: 4].',
+        type=int,default=4
+        )
+    parser.add_argument(
+        '--lines',
+        metavar='INT',
+        help='How many lines to calculate saturation',
+        type=int,default=50000000
+        )
+    args = parser.parse_args()
+    return args
 
 
 if __name__=='__main__':
