@@ -10,7 +10,7 @@ class Count:
         self.threads = args.threads
         self.name = args.name
         self.chemistry = args.chemistry
-        self.whitelist = args.whitelist
+        self.cbwhitelist = args.cbwhitelist
         self.mapparams = args.mapparams
         self.genomeDir = args.genomeDir
         self.calling_method = args.calling_method
@@ -28,20 +28,20 @@ class Count:
         ###load function
         from space_sketcher.tools.utils import gunzip
         ###to avoid STAR memery error
-        if self.whitelist.endswith(".gz"):
-            self.whitelist = gunzip(self.whitelist)
+        if self.cbwhitelist.endswith(".gz"):
+            self.cbwhitelist = gunzip(self.cbwhitelist)
 
         mapping_params = ""
         if self.chemistry == "10X":
             mapping_params += "--soloType CB_UMI_Simple "
             mapping_params += "--soloCBstart 1 --soloCBlen 16 --soloUMIstart 17 --soloUMIlen 12 "
             mapping_params += "--soloCBmatchWLtype 1MM_multi_Nbase_pseudocounts --soloBarcodeReadLength 0 "
-            mapping_params += f"--soloCBwhitelist {self.whitelist} "
+            mapping_params += f"--soloCBwhitelist {self.cbwhitelist} "
         elif self.chemistry == "leader_v1":
             mapping_params += "--soloType CB_UMI_Complex "
             mapping_params += "--soloCBposition 0_0_0_9 0_10_0_19 --soloUMIposition 0_20_0_29 "
             mapping_params += "--soloCBmatchWLtype EditDist_2 "
-            mapping_params += f"--soloCBwhitelist {self.whitelist} {self.whitelist} "
+            mapping_params += f"--soloCBwhitelist {self.cbwhitelist} {self.cbwhitelist} "
         elif self.chemistry == "other":
             if self.mapparams == "":
                 logger.info("Please check if chemistry and mapparams provided in proper way!")
@@ -61,7 +61,7 @@ class Count:
         judgeFilexits(
             self.rna1,
             self.rna2,
-            self.whitelist,
+            self.cbwhitelist,
             self.genomeDir,
             )
 
@@ -147,7 +147,7 @@ def helpInfo_data(parser):
         default='leader_v1'
         )
     parser.add_argument(
-        '-w', '--whitelist',
+        '-w', '--cbwhitelist',
         metavar='STR',
         help='Path to the cell barcode whitelist file.',
         required=True

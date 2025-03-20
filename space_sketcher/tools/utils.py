@@ -12,6 +12,35 @@ from datetime import datetime
 # from dnbc4tools.__init__ import __root_dir__
 from __init__ import __root_dir__
 
+def add_log(func):
+    """
+    logging start and done.
+    """
+    logFormatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+
+    module = func.__module__
+    name = func.__name__
+    logger_name = f"{module}.{name}"
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(logging.INFO)
+
+    consoleHandler = logging.StreamHandler(sys.stderr) ##标准输出
+    consoleHandler.setFormatter(logFormatter)
+    logger.addHandler(consoleHandler)
+
+    @wraps(func) #在装饰器前加@wraps(func)能帮助保留原有函数的名称和文档字符串
+    def wrapper(*args, **kwargs):
+        logger.info(f"{name} start...")
+        start = time.time()
+        result = func(*args, **kwargs) ###执行函数
+        end = time.time()
+        used = timedelta(seconds=end - start)
+        logger.info(f"{name} done. time used: {used}")
+        return result 
+    return wrapper
+
 # Extracted common path construction logic into a separate function
 def get_common_path_part():  
     return '/'.join(str(__root_dir__).split('/')[0:-4])

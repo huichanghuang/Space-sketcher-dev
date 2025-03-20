@@ -211,7 +211,7 @@ def count_saturation(indir, threads, lines):
 def parse_args():
     parser = argparse.ArgumentParser(description='sequencing saturation')
     parser.add_argument('--indir', 
-        metavar='FILE', 
+        metavar='PATH', 
         type=str,
         help='input directory'
         )
