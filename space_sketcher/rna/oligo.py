@@ -3,15 +3,14 @@ import sys
 
 class Oligo:
     def __init__(self, args):
-        self.cDNAr1 = args.cDNAfastq1
-        self.cDNAr2 = args.cDNAfastq2
-        self.oligor1 = args.oligofastq1
-        self.oligor2 = args.oligofastq2
+        self.oligor1 = args.oligor1
+        self.oligor2 = args.oligor2
         self.threads = args.threads
         self.name = args.name
-        self.chemistry = args.chemistry
-        self.darkreaction = args.darkreaction
-        self.customize = args.customize
+        self.sbwhitelist = args.sbwhitelist
+        self.linker1 = args.linker1
+        self.linker2 = args.linker2
+        self.puckfile = args.puckfile
         self.outdir = os.path.abspath(os.path.join(args.outdir,args.name))
         self.genomeDir = args.genomeDir
         self.gtf = args.gtf
