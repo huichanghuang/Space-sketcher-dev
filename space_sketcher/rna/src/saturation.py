@@ -10,20 +10,15 @@ from matplotlib.ticker import MaxNLocator
 import matplotlib.ticker as ticker
 from scipy.interpolate import make_interp_spline
 from loguru import logger
-from space_sketcher.tools.utils import judgeFilexits
+from space_sketcher.tools.utils import judgeFilexits, csv2dict
 from space_sketcher.__init__ import __root_dir__
-from pathlib import Path
+
 import subprocess
 """
 This function calculates various saturation statistics for scRNA-seq data,
 such as mean reads per cell, median genes per cell, sequencing saturation,
 and UMI saturation, at different sampling fractions.
 """
-
-def csv2dict(filename: Path | str, sep=","):
-
-    df = pd.read_csv(filename, sep=sep, header=None)
-    return dict(zip(df.iloc[:, 0], df.iloc[:, 1]))
 
 def prepare_readinfo(_indir, _threads, _lines:int):
     """
@@ -173,7 +168,7 @@ def plot_saturation(inputfile, outdir):
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5), tight_layout=True)
     umi_saturation(ax1,inputtable)
     gene_saturation(ax2,inputtable)
-    fig.savefig(os.path.join(outdir,f'saturation.png'),facecolor='white',transparent=False,dpi=400)
+    fig.savefig(os.path.join(outdir, 'saturation.png'),facecolor='white',transparent=False,dpi=400)
     plt.close(fig)
     return
 

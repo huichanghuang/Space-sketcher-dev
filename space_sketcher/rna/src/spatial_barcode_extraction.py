@@ -1,4 +1,6 @@
-import os,gzip, argparse
+import os
+import gzip
+import argparse
 from collections import defaultdict
 import dnaio
 from itertools import product
@@ -25,7 +27,6 @@ def get_whitelist(_cbwhitelist, _ltype):
         whitelist = tempwhitelist
 
     return whitelist
-
 
 def check_chemistry(_ltype):
     if _ltype == "10X":
@@ -88,7 +89,7 @@ def pos_detect_sb(seq, linker1, linker2, sbstart):
     return sb, sbumi
 
 @add_log
-def extract_sb_umis(oligoR1, oligoR2, linker1, linker2, sbstart, _ltype, cbwlfile, sbwlfile, spatial_dir, samplename):
+def extract_sb_umis(oligoR1, oligoR2, linker1, linker2, sbstart, _ltype, cbwlfile, sbwlfile, outdir):
     
     cbstart, cblen = check_chemistry(_ltype)
     cbwhitelist = get_whitelist(cbwlfile, _ltype)
@@ -122,7 +123,7 @@ def extract_sb_umis(oligoR1, oligoR2, linker1, linker2, sbstart, _ltype, cbwlfil
                 if sb in sbwhitelist:
                     spatial_umis[cb][sbumi][sb] += 1
 
-    spatial_umis_path = os.path.join(spatial_dir, f'{samplename}.spatial_umis.csv.gz')
+    spatial_umis_path = os.path.join(outdir, 'spatial_umis.csv.gz')
     with gzip.open(spatial_umis_path, 'wt') as f_umis:
         f_umis.write(",".join(["Cell_Barcode", "UMI", "Spatial_Barcode", "Read_Count"])+"\n")
         unique_sbs = set()
@@ -135,51 +136,31 @@ def extract_sb_umis(oligoR1, oligoR2, linker1, linker2, sbstart, _ltype, cbwlfil
 
     return spatial_umis_path, totalreads, cbmatch
 
-@add_log
-def get_summary(summary, true_cbs, sb_umis, _ltype, spatial_dir, samplename):
-    true_cells = get_whitelist(true_cbs, "")
-    if _ltype == "leader_v1":
-        ###structure of cell barcode in leader_v1 RNA matrix: AAAAAAAAAA_BBBBBBBBBB, must remove the "_"
-        true_cells = list(map(lambda x: x[:10]+x[-10:], true_cells))
-
-    df_umis = pd.read_csv(f"{sb_umis}", compression="gzip")
-
-    ### calculate saturation
-    summary["Valid_Spatial_Reads"] = df_umis["Read_Count"].sum()
-    summary["Valid_Spatial_Reads_ratio"] = round(summary["Valid_Spatial_Reads"]/summary["Total_Reads"], 3)
-    summary["Total_Spatial_UMIs"] = len(df_umis)
-    summary["Spatial_Barcode_Saturation"] = round(1-(summary["Total_Spatial_UMIs"]/summary["Valid_Spatial_Reads"]), 3)
-
-    truecell_umis = df_umis[df_umis["Cell_Barcode"].isin(true_cells)]
-    summary["Valid_Spatial_Reads_in_cell"] = truecell_umis["Read_Count"].sum()
-    summary["Total_Spatial_UMIs_in_cell"] = len(truecell_umis)
-    summary["Total_Spatial_UMIs_in_cell_ratio"] = round(len(truecell_umis)/len(df_umis), 3)
-    summary["Spatial_Barcode_Saturation_in_cell"] = round(1-(summary["Total_Spatial_UMIs_in_cell"]/summary["Valid_Spatial_Reads_in_cell"]),3)
-
-    outfile = os.path.join(spatial_dir, f'{samplename}.trucells-spatial_umis.csv.gz')
-    truecell_umis.to_csv(outfile, compression="gzip")
-
-    return summary
 
 def Stat_spatial_barcodes(r1fastq, r2fastq, linker1, linker2, 
                           sbstart, LibraryType, 
                           cellbarcode, spatialbarcode, 
-                          outdir, sample, truecell):
+                          outdir, sample):
 
     sb_umis_path, totalreads, cbmatch = extract_sb_umis(r1fastq, r2fastq, linker1, linker2, 
                                                         sbstart, LibraryType, 
                                                         cellbarcode, spatialbarcode, 
                                                         outdir, sample)
                              
-    tempdict = {"Total_Reads": totalreads}
-    tempdict = {"Cell_barcode_matched_reads": cbmatch}
+    summary = {"Total_Reads": totalreads}
+    summary["Cell_barcode_matched_reads"] = cbmatch
+    summary["Cell_barcode_matched_ratio"] = round(cbmatch/totalreads, 3)
+    df_umis = pd.read_csv(f"{sb_umis_path}", compression="gzip")
+    ### calculate saturation
+    summary["Valid_Spatial_Reads"] = df_umis["Read_Count"].sum()
+    summary["Valid_Spatial_Reads_ratio"] = round(summary["Valid_Spatial_Reads"]/summary["Total_Reads"], 3)
+    summary["Total_Spatial_UMIs"] = len(df_umis)
+    summary["Spatial_Barcode_Saturation"] = round(1-(summary["Total_Spatial_UMIs"]/summary["Valid_Spatial_Reads"]), 3)
 
-    summary = get_summary(tempdict, truecell, sb_umis_path, LibraryType, outdir, sample)
-
-    outstat = os.path.join(outdir, f"{sample}.sb_umis_saturation.txt")
+    outstat = os.path.join(outdir, "sb_umis_summary.temp.csv")
     with open(outstat, "wt") as outf:
         for k, v in summary.items():
-            print(f"{k}: {v}", file=outf)
+            print(f"{k},{v}", file=outf)
     
 
 def parse_args():
@@ -203,11 +184,6 @@ def parse_args():
         metavar='FILE', 
         type=str,
         help='The cell barcode whitelist files'
-        )
-    parser.add_argument('-t', '--truecell', 
-        metavar='FILE', 
-        type=str,
-        help='The filtered cell list called by starsolo'
         )
     parser.add_argument('-l', '--LibraryType', 
         metavar='STRING', 
@@ -251,4 +227,4 @@ if __name__=='__main__':
     Stat_spatial_barcodes(args.r1fastq, args.r2fastq, args.linker1, args.linker2, 
                         args.sbstart,args.LibraryType, 
                         args.cellbarcode, args.spatialbarcode, 
-                        args.outdir, args.sample, args.truecell)
+                        args.outdir, args.sample)

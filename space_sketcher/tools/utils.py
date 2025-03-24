@@ -9,6 +9,7 @@ import shutil
 import base64
 import subprocess
 from datetime import datetime
+from pathlib import Path
 # from dnbc4tools.__init__ import __root_dir__
 from __init__ import __root_dir__
 
@@ -40,6 +41,12 @@ def add_log(func):
         logger.info(f"{name} done. time used: {used}")
         return result 
     return wrapper
+
+def csv2dict(filename: Path | str, sep=","):
+    import pandas as pd
+    
+    df = pd.read_csv(filename, sep=sep, header=None)
+    return dict(zip(df.iloc[:, 0], df.iloc[:, 1]))
 
 # Extracted common path construction logic into a separate function
 def get_common_path_part():  
