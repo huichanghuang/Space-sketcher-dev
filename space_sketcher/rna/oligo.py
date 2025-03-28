@@ -8,16 +8,19 @@ class Oligo:
         self.threads = args.threads
         self.name = args.name
         self.sbwhitelist = args.sbwhitelist
+        self.cbwhitelist = args.cbwhitelist
         self.linker1 = args.linker1
         self.linker2 = args.linker2
-        self.puckfile = args.puckfile
+        self.sbstart = args.sbstart
+        self.library = args.library
+        self.coordfile = args.coordfile
         self.outdir = os.path.abspath(os.path.join(args.outdir,args.name))
-        self.genomeDir = args.genomeDir
-        self.gtf = args.gtf
-        self.chrMT = args.chrMT
-        self.no_introns = args.no_introns
-        self.outunmappedreads = args.outunmappedreads
-        self.end5= args.end5
+        # self.genomeDir = args.genomeDir
+        # self.gtf = args.gtf
+        # self.chrMT = args.chrMT
+        # self.no_introns = args.no_introns
+        # self.outunmappedreads = args.outunmappedreads
+        # self.end5= args.end5
 
 
     # def seqStructure(self) -> str:
@@ -64,6 +67,12 @@ class Oligo:
 
     def run(self):
         print("test oligo")
+        ### import lib
+        from space_sketcher.tools.utils import str_mkdir, judgeFilexits
+        from space_sketcher.__init__ import __root_dir__
+        from space_sketcher.rna.src.spatial_barcode_extraction import Stat_spatial_barcodes
+        from space_sketcher.rna.src.assign_coordinate import assign_coordinate
+        
     #     ### import lib
     #     from dnbc4tools.rna.src.staranno import process_libraries
     #     from dnbc4tools.rna.src.oligo_filter import oligo_combine_pl
@@ -71,21 +80,49 @@ class Oligo:
     #     from dnbc4tools.__init__ import __root_dir__
     #     from multiprocessing import Pool
 
-    #     ### run
-    #     judgeFilexits(
-    #         self.cDNAr1,
-    #         self.cDNAr2,
-    #         self.oligor1,
-    #         self.oligor2,
-    #         self.genomeDir,
-    #         self.gtf
-    #         )
+
         
-    #     str_mkdir('%s/01.data'%self.outdir)
-    #     str_mkdir('%s/log'%self.outdir)
-    #     change_path()
-    #     cDNAconfig, oligoconfig = self.seqStructure()
+        str_mkdir('%s/02.oligo'%self.outdir)
+        # str_mkdir('%s/log'%self.outdir)
+
+        ###Extract spatial barcodes
+        # judge file exits
+        judgeFilexits(
+            self.oligor1,
+            self.oligor2,
+            self.cbwhitelist,
+            self.sbwhitelist
+            )
+        # run Stat_spatial_barcodes
+        Stat_spatial_barcodes(self.oligor1, self.oligor2, self.linker1, self.linker2, 
+                            self.sbstart, self.library, 
+                            self.cbwhitelist, self.sbwhitelist,
+                            self.outdir)
         
+        ###Assign spatial barcodes coordinate
+        # judge file exits
+        judgeFilexits(
+            self.coordfile,
+            f"{self.outdir}/01.count/Solo.out/GeneFull_Ex50pAS/filtered/barcodes.tsv",
+            f"{self.outdir}/02.oligo/spatial_umis.csv.gz",
+            f"{self.outdir}/02.oligo/sb_umis_summary-1.temp.csv",
+            )        
+
+        #run assign_coordinate
+        assign_coordinate(self.coordfile, f"{self.outdir}/02.oligo/spatial_umis.csv.gz",
+                          f"{self.outdir}/01.count/Solo.out/GeneFull_Ex50pAS/filtered/barcodes.tsv",
+                          f"{self.outdir}/02.oligo/sb_umis_summary-1.temp.csv",
+                          self.sbwhitelist, self.outdir)
+        
+        ###Filter cell barcode by dbscan clustering
+        # judge file exits
+        judgeFilexits(
+            self.coordfile,
+            f"{self.outdir}/01.count/Solo.out/GeneFull_Ex50pAS/filtered/barcodes.tsv",
+            f"{self.outdir}/02.oligo/spatial_umis.csv.gz",
+            f"{self.outdir}/02.oligo/sb_umis_summary-1.temp.csv",
+            )
+
         
     #     print(f'\n{get_formatted_time()}\n'
     #         f'Conduct quality control for cDNA library barcoding, perform alignment.')
@@ -97,23 +134,6 @@ class Oligo:
     #         f'{self.outdir}/01.data/Log.progress.out',
     #         f'{self.outdir}/01.data/Log.out')
         
-    #     cDNA_star_cmd, cDNA_anno_cmd, oligo_qc_cmd =  process_libraries(
-    #         self.outdir, 
-    #         self.cDNAr1, 
-    #         self.cDNAr2, 
-    #         self.oligor1, 
-    #         self.oligor2, 
-    #         self.genomeDir, 
-    #         self.gtf, 
-    #         self.chrMT,
-    #         self.threads, 
-    #         cDNAconfig,
-    #         oligoconfig,
-    #         end5 = self.end5, 
-    #         no_introns = self.no_introns,
-    #         unmappedreads = self.outunmappedreads,
-    #         logdir=f'{self.outdir}'
-    #         )
 
 
     #     mission = [[oligo_qc_cmd], [cDNA_star_cmd]]
