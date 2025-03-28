@@ -139,13 +139,13 @@ def extract_sb_umis(oligoR1, oligoR2, linker1, linker2, sbstart, _ltype, cbwlfil
 
 def Stat_spatial_barcodes(r1fastq, r2fastq, linker1, linker2, 
                           sbstart, LibraryType, 
-                          cellbarcode, spatialbarcode, 
-                          outdir, sample):
+                          cbwhitelist, sbwhitelist, 
+                          outdir):
 
     sb_umis_path, totalreads, cbmatch = extract_sb_umis(r1fastq, r2fastq, linker1, linker2, 
                                                         sbstart, LibraryType, 
-                                                        cellbarcode, spatialbarcode, 
-                                                        outdir, sample)
+                                                        cbwhitelist, sbwhitelist, 
+                                                        outdir)
                              
     summary = {"Total_Reads": totalreads}
     summary["Cell_barcode_matched_reads"] = cbmatch
@@ -157,7 +157,7 @@ def Stat_spatial_barcodes(r1fastq, r2fastq, linker1, linker2,
     summary["Total_Spatial_UMIs"] = len(df_umis)
     summary["Spatial_Barcode_Saturation"] = round(1-(summary["Total_Spatial_UMIs"]/summary["Valid_Spatial_Reads"]), 3)
 
-    outstat = os.path.join(outdir, "sb_umis_summary.temp.csv")
+    outstat = os.path.join(outdir, "sb_umis_summary-1.temp.csv")
     with open(outstat, "wt") as outf:
         for k, v in summary.items():
             print(f"{k},{v}", file=outf)
@@ -175,12 +175,12 @@ def parse_args():
         type=str,
         help='The R2 fastq file, contain spatial barcode and linkers'
         )
-    parser.add_argument('-sb', '--spatialbarcode', 
+    parser.add_argument('-sb', '--sbwhitelist', 
         metavar='FILE', 
         type=str,
         help='The spatial barcode whitelist files'
         )
-    parser.add_argument('-cb', '--cellbarcode', 
+    parser.add_argument('-cb', '--cbwhitelist', 
         metavar='FILE', 
         type=str,
         help='The cell barcode whitelist files'
@@ -196,11 +196,6 @@ def parse_args():
         metavar='PATH', 
         type=str,
         help='The output directory'
-        )
-    parser.add_argument('-s', '--sample', 
-        metavar='STRING', 
-        type=str,
-        help='Sample name'
         )
     parser.add_argument('-l1', '--linker1', 
         metavar='STRING', 
@@ -226,5 +221,5 @@ if __name__=='__main__':
 
     Stat_spatial_barcodes(args.r1fastq, args.r2fastq, args.linker1, args.linker2, 
                         args.sbstart,args.LibraryType, 
-                        args.cellbarcode, args.spatialbarcode, 
-                        args.outdir, args.sample)
+                        args.cbwhitelist, args.sbwhitelist, 
+                        args.outdir)
