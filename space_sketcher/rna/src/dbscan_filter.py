@@ -259,11 +259,11 @@ def generate_plots(df, cb_cluster, subsb_umi_summary, outdir):
     
     return cb_umi_mean_top100
 
-def filter_matrix(matrixdir, coord_df, library, outdir):
+def filter_matrix(matrixdir, coord_df, chemistry, outdir):
     """Filter matrix based on DBSCAN results"""
     adata = sc.read_10x_mtx(matrixdir, var_names='gene_symbols', cache=True)
     
-    if library == "leader_v1":
+    if chemistry == "leader_v1":
         coord_df['cb'] = coord_df['cb'].apply(lambda x: f"{x[:10]}_{x[10:20]}")
     
     adata_barcodes = adata.obs_names.values
@@ -293,7 +293,7 @@ def generate_summary(cellreads, coord_df, cb_umi_mean_top100, outdir):
     cellreadsdata = pd.read_csv(cellreads, sep='\t')
     cellreadsdata = cellreadsdata[cellreadsdata['CB'] != "CBnotInPasslist"]
     
-    if 'library' in locals() and 'library' == "leader_v1":
+    if 'chemistry' in locals() and 'chemistry' == "leader_v1":
         cell_barcodes = coord_df['cb'].tolist()
     else:
         cell_barcodes = coord_df['cb'].tolist()
@@ -320,7 +320,7 @@ def generate_summary(cellreads, coord_df, cb_umi_mean_top100, outdir):
             f.write(f"{k},{v}\n")
 
 
-def dbscan_filter(infile, outdir, maxumi, minumi, matrixdir, cellreads, library, eps, min_samples, n_jobs):
+def dbscan_filter(infile, outdir, maxumi, minumi, matrixdir, cellreads, chemistry, eps, min_samples, n_jobs):
     os.makedirs(outdir, exist_ok=True)
     # Process data
     
@@ -338,7 +338,7 @@ def dbscan_filter(infile, outdir, maxumi, minumi, matrixdir, cellreads, library,
     cb_umi_mean_top100.to_csv(os.path.join(outdir, "cb_umi_mean_knee_plot.temp.txt"), sep='\t', index=False)
 
     # Filter matrix and generate final outputs
-    filter_matrix(matrixdir, coord_df, library, outdir)
+    filter_matrix(matrixdir, coord_df, chemistry, outdir)
     generate_summary(cellreads, coord_df, cb_umi_mean_top100, outdir)
 
 
@@ -363,7 +363,7 @@ def parse_args():
         metavar='PATH',
         type=str,
         required=True,
-        help='Directory containing 10X format matrix (raw_feature_bc_matrix)'
+        help='Directory containing 10X format matrix'
         )
     parser.add_argument('-cr', '--cellreads',
         metavar='FILE',
@@ -371,12 +371,12 @@ def parse_args():
         required=True,
         help='Cell reads file from STARsolo output'
         )
-    parser.add_argument('-l', '--library',
+    parser.add_argument('-c', '--chemistry',
         metavar='STR',
         type=str,
         choices=['10X', 'leader_v1'],
-        default='10X',
-        help='Library type: 10X or leader_v1'
+        default='leader_v1',
+        help='Chemistry version: 10X or leader_v1, [default: leader_v1]'
         )
     parser.add_argument('--maxumi',
         metavar='INT',
@@ -415,5 +415,5 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
     dbscan_filter(args.infile, args.outdir, args.maxumi, args.minumi, 
-                  args.matrixdir, args.cellreads, args.library, 
+                  args.matrixdir, args.cellreads, args.chemistry, 
                   args.eps, args.min_samples, args.n_jobs)
