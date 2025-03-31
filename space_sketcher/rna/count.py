@@ -148,7 +148,7 @@ def helpInfo_data(parser):
         )
     parser.add_argument(
         '-w', '--cbwhitelist',
-        metavar='STR',
+        metavar='FILE',
         help='Path to the cell barcode whitelist file.',
         required=True
         )

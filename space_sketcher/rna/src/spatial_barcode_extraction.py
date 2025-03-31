@@ -36,7 +36,7 @@ def check_chemistry(_ltype):
         cbstart = 0
         cblen = 20
     else:
-        print("Please use the correct LibraryType input, 10X or leader_v1.")
+        print("Please use the correct chemistry input, 10X or leader_v1.")
         exit
     return cbstart, cblen
 
@@ -138,12 +138,12 @@ def extract_sb_umis(oligoR1, oligoR2, linker1, linker2, sbstart, _ltype, cbwlfil
 
 
 def Stat_spatial_barcodes(r1fastq, r2fastq, linker1, linker2, 
-                          sbstart, LibraryType, 
+                          sbstart, chemistry, 
                           cbwhitelist, sbwhitelist, 
                           outdir):
 
     sb_umis_path, totalreads, cbmatch = extract_sb_umis(r1fastq, r2fastq, linker1, linker2, 
-                                                        sbstart, LibraryType, 
+                                                        sbstart, chemistry, 
                                                         cbwhitelist, sbwhitelist, 
                                                         outdir)
                              
@@ -185,12 +185,12 @@ def parse_args():
         type=str,
         help='The cell barcode whitelist files'
         )
-    parser.add_argument('-l', '--LibraryType', 
-        metavar='STRING', 
+    parser.add_argument('-c', '--chemistry',
+        metavar='STR',
         type=str,
-        choices=['10X','leader_v1'],
-        help='LibraryType, can be: 10X, leader_v1, default: 10X',
-        default='10X'
+        choices=['10X', 'leader_v1'],
+        default='leader_v1',
+        help='Chemistry version: 10X or leader_v1, [default: leader_v1]'
         )
     parser.add_argument('-o', '--outdir', 
         metavar='PATH', 
@@ -220,6 +220,6 @@ if __name__=='__main__':
     args = parse_args()
 
     Stat_spatial_barcodes(args.r1fastq, args.r2fastq, args.linker1, args.linker2, 
-                        args.sbstart,args.LibraryType, 
+                        args.sbstart,args.chemistry, 
                         args.cbwhitelist, args.sbwhitelist, 
                         args.outdir)
