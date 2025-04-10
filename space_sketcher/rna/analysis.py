@@ -37,7 +37,7 @@ class Analysis:
 
         # os.environ[ 'MPLCONFIGDIR' ] = f'{self.outdir}/log/.temp'
         # os.environ[ 'NUMBA_CACHE_DIR' ] = f'{self.outdir}/log/.temp'
-        
+
         # rm_temp(
         #     f'{self.outdir}/03.analysis/cluster_annotation.png'
         #     )
