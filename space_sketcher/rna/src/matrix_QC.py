@@ -163,25 +163,27 @@ def parse_args():
                        help='Clustering resolution')
     return parser.parse_args()
 
-def main():
-    args = parse_args()
-    os.makedirs(args.outdir, exist_ok=True)
+def perform_matrix_qc(matrixdir, outdir, minfeatures, mincells,
+                    nvariables, ndims, resolution):
+    os.makedirs(outdir, exist_ok=True)
     # 1. Load data
-    adata = read_mtx_matrix(args.matrixdir)
+    adata = read_mtx_matrix(matrixdir)
     # 2. Quality control
-    adata = perform_qc_filtering(adata, args.minfeatures, args.mincells)    
+    adata = perform_qc_filtering(adata, minfeatures, mincells)    
     # 3. Process data
-    adata = process_expression_data(adata, args.nvariables, args.ndims, args.resolution)        
+    adata = process_expression_data(adata, nvariables, ndims, resolution)        
     # 4. Find markers
-    find_markers(adata, args.outdir, args.samplename)
+    find_markers(adata, outdir)
     # 5. Generate plots and outputs
-    plot_data = generate_plots(adata, args.outdir)
-    plot_data.to_csv(f"{args.outdir}/UMAPpos.txt", sep='\t', index=False)
+    plot_data = generate_plots(adata, outdir)
+    plot_data.to_csv(f"{outdir}/UMAPpos.txt", sep='\t', index=False)
     # 6. Save results
-    adata.write(f"{args.matrixdir}/cluster.h5ad")
+    adata.write(f"{matrixdir}/cluster.h5ad")
     # Print parameters
-    print(f"Parameters used:\nmincells: {args.mincells}\nminfeatures: {args.minfeatures}")
-    print(f"nvariables: {args.nvariables}\nndims: {args.ndims}\nresolution: {args.resolution}")
+    print(f"Parameters used:\nmincells: {mincells}\nminfeatures: {minfeatures}")
+    print(f"nvariables: {nvariables}\nndims: {ndims}\nresolution: {resolution}")
 
 if __name__ == '__main__':
-    main()
+    args = parse_args()
+    perform_matrix_qc(args.matrixdir, args.outdir, args.minfeatures, args.mincells,
+                    args.nvariables, args.ndims, args.resolution)
