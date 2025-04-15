@@ -12,14 +12,14 @@ This function extract the umi and readcount of spatial barcode from oligo fastq,
 and calculate the statistic of spatial barcode matching and saturation
 """
 
-def get_whitelist(_cbwhitelist, _ltype):
+def get_whitelist(_cbwhitelist, chemistry):
     tempwhitelist = set()
     with open(_cbwhitelist, "r") as f:
         for line in f:
             line = line.strip().split()
             tempwhitelist.add(line[0])
     
-    if _ltype == "leader_v1" and len(line[0]) == 10:
+    if chemistry == "leader_v1" and len(line[0]) == 10:
         whitelist = set()
         for cb1,cb2 in product(tempwhitelist, tempwhitelist):
             whitelist.add(cb1+cb2)
@@ -28,11 +28,11 @@ def get_whitelist(_cbwhitelist, _ltype):
 
     return whitelist
 
-def check_chemistry(_ltype):
-    if _ltype == "10X":
+def check_chemistry(chemistry):
+    if chemistry == "10X":
         cbstart = 0
         cblen = 16
-    elif _ltype == "leader_v1":
+    elif chemistry == "leader_v1":
         cbstart = 0
         cblen = 20
     else:
@@ -89,10 +89,10 @@ def pos_detect_sb(seq, linker1, linker2, sbstart):
     return sb, sbumi
 
 @add_log
-def extract_sb_umis(oligoR1, oligoR2, linker1, linker2, sbstart, _ltype, cbwlfile, sbwlfile, outdir):
+def extract_sb_umis(oligoR1, oligoR2, linker1, linker2, sbstart, chemistry, cbwlfile, sbwlfile, outdir):
     
-    cbstart, cblen = check_chemistry(_ltype)
-    cbwhitelist = get_whitelist(cbwlfile, _ltype)
+    cbstart, cblen = check_chemistry(chemistry)
+    cbwhitelist = get_whitelist(cbwlfile, chemistry)
     sbwhitelist = get_whitelist(sbwlfile, "")
 
     totalreads, cbmatch = 0, 0
@@ -105,6 +105,8 @@ def extract_sb_umis(oligoR1, oligoR2, linker1, linker2, sbstart, _ltype, cbwlfil
                 r2seq = r2.sequence
                 cb = r1seq[cbstart:cblen]
                 if cb not in cbwhitelist: continue
+                if chemistry == "leader_v1":
+                    cb = cb[:10]+"_"+cb[10:20] ##to match the RNA cell barcode 
                 cbmatch += 1
                 sb, sbumi = auto_detect_sb(r2seq, linker1, linker2)
                 if sb in sbwhitelist:
@@ -118,6 +120,8 @@ def extract_sb_umis(oligoR1, oligoR2, linker1, linker2, sbstart, _ltype, cbwlfil
                 r2seq = r2.sequence
                 cb = r1seq[cbstart:cblen]
                 if cb not in cbwhitelist: continue
+                if chemistry == "leader_v1":
+                    cb = cb[:10]+"_"+cb[10:20] ##to match the RNA cell barcode 
                 cbmatch += 1
                 sb, sbumi = pos_detect_sb(r2seq, linker1, linker2, sbstart)
                 if sb in sbwhitelist:
@@ -147,17 +151,17 @@ def Stat_spatial_barcodes(r1fastq, r2fastq, linker1, linker2,
                                                         cbwhitelist, sbwhitelist, 
                                                         outdir)
                              
-    summary = {"Total_Reads": totalreads}
-    summary["Cell_barcode_matched_reads"] = cbmatch
-    summary["Cell_barcode_matched_ratio"] = round(cbmatch/totalreads, 3)
+    summary = {"Total Spatial Reads": totalreads}
+    summary["Spatial Reads with Valid Cellbarcode"] = cbmatch
     df_umis = pd.read_csv(f"{sb_umis_path}", compression="gzip")
     ### calculate saturation
-    summary["Valid_Spatial_Reads"] = df_umis["Read_Count"].sum()
-    summary["Valid_Spatial_Reads_ratio"] = round(summary["Valid_Spatial_Reads"]/summary["Total_Reads"], 3)
-    summary["Total_Spatial_UMIs"] = len(df_umis)
-    summary["Spatial_Barcode_Saturation"] = round(1-(summary["Total_Spatial_UMIs"]/summary["Valid_Spatial_Reads"]), 3)
+    summary["Valid Spatial Reads"] = df_umis["Read_Count"].sum()
+    summary["Fraction of Valid Spatial Reads"] = round(summary["Valid Spatial Reads"]/\
+                                                       summary["Total Spatial Reads"], 4)
+    summary["Valid Spatial UMIs"] = len(df_umis)
+    summary["Spatial Barcode Saturation"] = round(1-(summary["Valid Spatial UMIs"]/summary["Valid Spatial Reads"]), 4)
 
-    outstat = os.path.join(outdir, "sb_umis_summary-1.temp.csv")
+    outstat = os.path.join(outdir, "sb_library_summary.temp.csv")
     with open(outstat, "wt") as outf:
         for k, v in summary.items():
             print(f"{k},{v}", file=outf)

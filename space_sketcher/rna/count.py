@@ -56,6 +56,7 @@ class Count:
         ### import lib
         from space_sketcher.tools.utils import str_mkdir, judgeFilexits
         from space_sketcher.__init__ import __root_dir__
+        from space_sketcher.rna.src.saturation import count_saturation
 
         ### run
         judgeFilexits(
@@ -105,8 +106,32 @@ class Count:
         (Path(self.outdir) / ".STAR.done").touch()
 
         ###calculate saturation
-        from space_sketcher.rna.src.saturation import count_saturation
         count_saturation(rnadir, self.threads)
+
+        ###Prepare barcode rank file for RNA knee plot
+        judgeFilexits(
+            f"{self.outdir}/01.count/Solo.out/GeneFull_Ex50pAS/raw",
+            f"{self.outdir}/01.count/Solo.out/GeneFull_Ex50pAS/filtered/barcodes.tsv",
+            )
+        
+        import scanpy as sc
+        from scipy.io import mmread
+        import pandas as pd
+
+        truecells = pd.read_csv(f"{self.outdir}/01.count/Solo.out/GeneFull_Ex50pAS/filtered/barcodes.tsv", header=None)[0].tolist()
+        adata = sc.read_10x_mtx(
+            f"{self.outdir}/01.count/Solo.out/GeneFull_Ex50pAS/raw",
+            var_names='gene_symbols',
+            cache=True
+        )
+        umi_counts = pd.DataFrame({
+            'barcode': adata.obs_names,
+            'UMI': adata.X.sum(axis=1).A1  # 转换为numpy数组
+        })
+        umi_counts['is_cell_barcode'] = umi_counts['barcode'].isin(truecells).astype(int)
+        umi_counts = umi_counts.sort_values('UMI', ascending=False)
+        umi_counts['rank'] = range(1, len(umi_counts)+1)
+        umi_counts.to_csv(os.path.join(self.outdir, 'cell_rna_umi.rank.txt'), sep='\t', index=False)
 
 
 def count(args):

@@ -67,7 +67,7 @@ def plot_cmap(density):
     ind = min(levels - 1, int(math.floor(levels * density)))
     return plot_colors[ind]
 
-def plot_barcoderanks_rna(kneefile):
+def plot_barcode_ranks(kneefile, _type="RNA"):
 
     dataframe_df = pd.read_csv(kneefile, header=0, sep = "\t")
     dataframe_df = dataframe_df.sort_values(by="UMI" , ascending=False)
@@ -134,7 +134,7 @@ def plot_barcoderanks_rna(kneefile):
             color="black", showline=True, zeroline=True, linewidth=1, fixedrange= True,
             linecolor="black"),
         yaxis = dict(
-            type="log", title="UMI counts", gridcolor="whitesmoke",
+            type="log", title=f"{_type} UMI counts", gridcolor="whitesmoke",
             linewidth=1, fixedrange= True, color="black", linecolor="black"),
         height= 500, width= 500,
         plot_bgcolor='rgba(0,0,0,0)',hovermode='closest',paper_bgcolor='white',
@@ -144,7 +144,7 @@ def plot_barcoderanks_rna(kneefile):
                 family="Arial",size=12,color="black"),
             bordercolor="Black",borderwidth=0),
         margin = dict(l=0,r=0,b=0,t=0,pad=0.1),
-        title=dict(text="Barcode Rank Plot", font=dict(size=15),x=0.5,y=0.99),
+        title=dict(text=f"{_type} UMI", font=dict(size=15),x=0.5,y=0.99),
         font = dict(size=10))
     
     fig = go.Figure(
@@ -191,85 +191,13 @@ def saturation_plot(saturationfile):
 
     return fig
 
-
-def prepare_cluster_data(infile):
-    """
-    Calculate each cluster's percentage
-    sampling data to 20000 cells
-    """
-    clusterdf = pd.read_csv(infile, header=0, sep="\t")
-    ###reset column names
-    cols = ["CB", "sample", "UMI counts", "Gene counts", "Mito Percentage", "RNA_snn_res.0.5", "Cluster", "UMAP1", "UMAP2"]
-    clusterdf.columns = cols
-    clusternum = clusterdf["Cluster"].nunique()
-    totalcells = clusterdf.shape[0]
-    for i in range(clusternum):
-        cluster = clusterdf[clusterdf["Cluster"]==i]
-        cluster_percentage = str(round(cluster.shape[0]*100/totalcells, 2))+"%"
-        clusterdf.loc[clusterdf["Cluster"]==i, "percentage"] = cluster_percentage
-        clusterdf.loc[clusterdf["Cluster"]==i, "Clu"] = cluster_percentage
-    ###subset the data to 20000 cells
-    if totalcells > 20000:
-        clusterdf = clusterdf.sample(n=20000, random_state=1)
-
-    clusterdf["Cluster"] = clusterdf["Cluster"].astype("category")
-    ##sort the clusterdf by the Cluster column
-    clusterdf = clusterdf.sort_values(by="Cluster")
-    return clusterdf
-
 my36colors = ['#E5D2DD', '#53A85F', '#F1BB72', '#F3B1A0', '#D6E7A3', '#57C3F3', '#476D87',
                '#E95C59', '#E59CC4', '#AB3282', '#23452F', '#BD956A', '#8C549C', '#585658',
                '#9FA3A8', '#E0D4CA', '#5F3D69', '#C5DEBA', '#58A4C3', '#E4C755', '#F7F398',
                '#AA9A59', '#E63863', '#E39A35', '#C1E6F3', '#6778AE', '#91D0BE', '#B53E2B',
                '#712820', '#DCC1DD', '#CCE0F5',  '#CCC9E6', '#625D9E', '#68A180', '#3A6963',
                '#968175']
-
-def cluster_plot(clusterfile):
-    clusterdf = prepare_cluster_data(clusterfile)
-    fig = make_subplots(rows=1, cols=2, 
-                        subplot_titles=("Cells Colored by UMI Counts", "Cells Colored by Cluster"),
-                        horizontal_spacing=0.2)
-    
-    fig.add_trace(px.scatter(clusterdf,
-                                x = "UMAP1",
-                                y = "UMAP2",
-                                color="UMI counts").data[0], 
-                                row=1, col=1)    
-    
-    fig = fig.add_traces(px.scatter(clusterdf,
-                        x = "UMAP1",
-                        y = "UMAP2",
-                        color="Cluster",
-                        hover_data=["percentage"],
-                        color_discrete_map={i:my36colors[i] for i in range(clusterdf["Cluster"].nunique())},
-                        ).data, 
-                        rows=1, cols=2)
-    
-    fig.update_traces(marker_size=3)
-    fig.update_layout(
-        coloraxis={"colorbar": {"x": 0.4,"len": 1.0,"y": 0.5,'title': 'UMI counts'}})
-    fig.update_layout(
-        width=1200, height=500,
-        plot_bgcolor='white', ###set the background color
-        margin=dict(l=20, r=20, t=30, b=20))
-    
-    ##update the axis style
-    fig.update_xaxes(
-        mirror=True,
-        ticks='outside',
-        showline=True,
-        linecolor='black',
-        gridcolor='whitesmoke')
-    
-    fig.update_yaxes(
-        mirror=True,
-        ticks='outside',
-        showline=True,
-        linecolor='black',
-        gridcolor='whitesmoke')
-    
-    return fig
-    
+ 
 def distribution_violin(clusterfile, samplename):
 
     clusterdf = pd.read_csv(clusterfile, header=0, sep="\t")
@@ -425,7 +353,6 @@ def spatial_scatter(_infile, _type = "UMI"):
         print("Please input the correct type: UMI or Cluster")
 
     return plot1, plot2
-
 
 def plot_sb_cb_umi_knee(_sb_umi_file, _cb_umi_file):
 

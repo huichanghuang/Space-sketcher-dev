@@ -24,42 +24,40 @@ def readlines(_file):
 @add_log
 def assign_coordinate(coordfile, sb_umis, true_cbs, summaryfile, sbwlfile, outdir):
    
-    true_cells = readlines(true_cbs)
-    #structure of cell barcode in leader_v1 RNA matrix: AAAAAAAAAA_BBBBBBBBBB, must remove the "_"
-    true_cells = list(map(lambda x: x.replace("_", ""), true_cells))
-    
+    true_cells = readlines(true_cbs)    
     ###extract spatial barcode for those calling cell barcodes
     df_umis = pd.read_csv(f"{sb_umis}", compression="gzip")
+    
     truecell_umis = df_umis[df_umis["Cell_Barcode"].isin(true_cells)]
     ###spatial barcode截取, 为了匹配puckfile中的barcode
     truecell_umis["SUB_SB"] = df_umis["Spatial_Barcode"].str[:10]+df_umis["Spatial_Barcode"].str[12:18]
 
     ###summary statistic
     summary = csv2dict(summaryfile)
-    summary["Valid_Spatial_Reads_in_cell"] = truecell_umis["Read_Count"].sum()
-    summary["Total_Spatial_UMIs_in_cell"] = len(truecell_umis)
-    summary["Total_Spatial_UMIs_in_cell_ratio"] = round(len(truecell_umis)/len(df_umis), 3)
-    summary["Spatial_Barcode_Saturation_in_cell"] = round(1-(summary["Total_Spatial_UMIs_in_cell"]/summary["Valid_Spatial_Reads_in_cell"]),3)
+    summary["Valid Spatial Reads in Cells"] = truecell_umis["Read_Count"].sum()
+    summary["Fraction of Valid Spatial Reads in Cells"] = round(summary["Valid Spatial Reads in Cell"]/\
+                                                               summary["Valid Spatial Reads"], 4)
+    summary["Valid Spatial UMIs in Cell"] = len(truecell_umis)
+    summary["Fraction of Valid Spatial UMIs in Cells"] = round(summary["Valid Spatial UMIs in Cell"]/\
+                                                               summary["Valid Spatial UMIs"], 4)
 
     coordf = pd.read_csv(coordfile, header=0)
     coordf.columns = ["SUB_SB", "x", "y"]
-    summary["Total_puck_spatial_barcodes"] = len(coordf)
+    summary["Total Spatial Barcodes with Location in Chip"] = len(coordf)
     
     sbwhitelist = readlines(sbwlfile)
     sbwhitelist_modified = list(map(lambda x: x[:10]+x[12:18], sbwhitelist))
     filtered_coordf = coordf[coordf["SUB_SB"].isin(sbwhitelist_modified)]
-    summary["Puck_spatial_barcodes_in_whitelist"] = len(filtered_coordf)
-    summary["Puck_spatial_barcodes_in_whitelist_rate"] = round(len(filtered_coordf)/len(coordf), 3)
-
     filtered_coordf_dedup = filtered_coordf.drop_duplicates(subset='SUB_SB') ##根据Spatial_Barcode去重
-    summary["Unique_puck_spatial_barcodes_in_whitelist"] = len(filtered_coordf_dedup)
-    summary["Unique_puck_spatial_barcodes_in_whitelist_rate"] = round(len(filtered_coordf_dedup)/len(coordf), 3)
+    summary["Unique Valid Spatial Barcodes with Location in Chip"] = len(filtered_coordf_dedup) ##unique and in whitelist
+    summary["Fraction of Unique Valid Spatial Barcodes with Location in Chip"] = round(summary["Unique Valid Spatial Barcodes with Location in Chip"]/\
+                                                                                       summary["Total Spatial Barcodes with Location in Chip"], 4)
 
     ###merge coordfile and sb_umis
-    summary["Total Reads in cell calling"] = truecell_umis["Read_Count"].sum()
     mergedf = pd.merge(truecell_umis, filtered_coordf_dedup, on="SUB_SB", how="inner")
-    summary["Reads in with spatial barcode in puck"] = mergedf["Read_Count"].sum()
-    summary["Reads in with spatial barcode in puck rate"] = round(mergedf["Read_Count"].sum()/truecell_umis["Read_Count"].sum(), 3)
+    summary["Spatial Reads in Cells with Location in Chip"] = mergedf["Read_Count"].sum()
+    summary["Fraction of Spatial Reads in Cells with Location in Chip"] = round(summary["Spatial Reads in Cell with Location in Chip"]/\
+                                                                               summary["Valid Spatial Reads in Cell"],4)
 
     mergedf_dropped = mergedf.drop("Read_Count", axis=1)
     mergedf_dropped["UMI_count"] = mergedf_dropped.groupby(['Cell_Barcode', 'SUB_SB'])['UMI'].transform('nunique')
@@ -71,11 +69,24 @@ def assign_coordinate(coordfile, sb_umis, true_cbs, summaryfile, sbwlfile, outdi
     outfile = os.path.join(outdir, "cb_sb_coord.txt")
     df_sorted_dedup.to_csv(outfile, index=False, header=True, sep="\t")
 
-    outsummary = os.path.join(outdir, "sb_umis_summary.temp.csv")
+    outsummary = os.path.join(outdir, "sb_library_summary.csv")
     with open(outsummary, "wt") as outf:
         for k, v in summary.items():
             print(f"{k},{v}", file=outf)
     
+    ###prepare barcode rank file for spatial knee plot
+    cell_spatial_umi = df_umis.groupby(['Cell_Barcode', 'Spatial_Barcode'])['UMI'].nunique().reset_index()
+    cell_spatial_umi = cell_spatial_umi.rename(columns={'UMI': 'spatial_UMI_count'})
+    cell_spatial_umi = cell_spatial_umi.groupby('Cell_Barcode')['spatial_UMI_count'].sum().reset_index()
+    cell_spatial_umi = cell_spatial_umi.rename(columns={'spatial_UMI_count': 'UMI'})
+    cell_spatial_umi['is_cell_barcode'] = cell_spatial_umi['Cell_Barcode'].isin(true_cells).astype(int)
+    cell_spatial_umi = cell_spatial_umi.sort_values('UMI', ascending=False)
+    cell_spatial_umi['rank'] = range(1, len(cell_spatial_umi)+1)
+    final_output = cell_spatial_umi.rename(columns={'Cell_Barcode': 'barcode'})
+    final_output = final_output[['barcode', 'UMI', 'is_cell_barcode', 'rank']]
+    final_output.to_csv(os.path.join(outdir, 'cell_sb_umi.rank.txt'), sep='\t', index=False)
+
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Assign coordinate to each spatial barcode.')

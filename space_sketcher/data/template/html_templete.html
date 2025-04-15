@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>{{ title }}</title>
+<style>
+h2 {
+    border-bottom: none;
+}
+
+.navbar-light {
+  background-color: #517699;
+  color: #fdfefe;
+}
+
+.navbar-report {
+    padding-top: 0.815rem;
+    padding-bottom: 0.815rem;
+    font-size: 1.25rem;
+}
+
+.nav-pills .nav-link {
+    background-color: #fff;
+}
+
+.metric-number {
+    font-size: 48px;
+    color: #ffc107;
+}
+
+
+.panel-tabset > .nav-tabs, .panel-tabset > .tab-content {
+    border: none;
+}
+
+.panel-tabset > .tab-content {
+    padding: 0;
+}
+
+/* 表格css */
+
+.gt_left {
+    text-align: left;
+}
+
+.gt_right {
+    text-align: right;
+}
+
+.gt_row {
+    padding-top: 8px;
+    padding-bottom: 8px;
+    padding-left: 5px;
+    padding-right: 5px;
+    margin: 10px;
+    border-top-style: solid;
+    border-top-width: 1px;
+    border-top-color: #D3D3D3;
+    border-left-style: none;
+    border-left-width: 1px;
+    border-left-color: #D3D3D3;
+    border-right-style: none;
+    border-right-width: 1px;
+    border-right-color: #D3D3D3;
+    vertical-align: middle;
+    overflow-x: hidden;
+}
+
+.gt_table {
+    display: table;
+    border-collapse: collapse;
+    line-height: normal;
+    margin-left: auto;
+    margin-right: auto;
+    color: #333333;
+    font-size: 1em;
+    font-weight: normal;
+    font-style: normal;
+    background-color: #FFFFFF;
+    width: 100%;
+    border-top-style: solid;
+    border-top-width: 1px;
+    border-top-color: #DFDFDF;
+    border-right-style: none;
+    border-right-width: 2px;
+    border-right-color: #D3D3D3;
+    border-bottom-style: solid;
+    border-bottom-width: 1px;
+    border-bottom-color: #DFDFDF;
+    border-left-style: none;
+    border-left-width: 2px;
+    border-left-color: #D3D3D3;
+    font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    -webkit-font-smoothing: antialiased;
+}
+
+.gt_table_body {
+    border-top-style: solid;
+    border-top-width: 0px;
+    border-top-color: #D3D3D3 !important;
+    border-bottom-style: solid;
+    border-bottom-width: 0px;
+    border-bottom-color: #D3D3D3;
+}
+
+.gt_table tbody tr:hover {
+    background-color: rgba(0,0,0,.075);
+    color: #212529;
+}
+
+
+</style>
+
+{% for link in links %}
+  <link href="{{link}}" rel="stylesheet">
+{% endfor %}
+
+{% for script in scripts %}
+  <script src="{{script}}" ></script>
+{% endfor %}
+
+
+
+</head>
+
+
+<body class="fullcontent quarto-light" data-tabster="{&quot;root&quot;:{}}">
+  <i tabindex="0" role="none" data-tabster-dummy="" aria-hidden="true" style="position: fixed; height: 1px; width: 1px; opacity: 0.001; z-index: -1; content-visibility: hidden; top: 0px; left: 0px;"></i><div class="navbar-light">
+      <div class="page-columns">
+        <div class="content">
+          <div class="d-flex navbar-report align-items-end">
+            <div class="me-auto" style="font-weight: 500">
+              Cell Sketcher (vdj)
+            </div>
+            <div style="padding-left: 1rem;">
+              <img style="height: 30px" src="{{logo_uri}}">
+            </div>
+        </div>
+      </div>
+  </div></div>
+  
+  <div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+  
+  <main class="content" id="quarto-document-content">
+    <div class="panel-tabset nav-pills">
+      <ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-1-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-1" role="tab" aria-controls="tabset-1-1" aria-selected="true" href="">Summary</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-1-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-2" role="tab" aria-controls="tabset-1-2" aria-selected="false" href="" tabindex="-1">VDJ</a></li></ul>
+      <div class="tab-content nav-pills">
+      <div id="tabset-1-1" class="tab-pane active show" role="tabpanel" aria-labelledby="tabset-1-1-tab">
+      {{summary | safe}}
+      </div>
+      <div id="tabset-1-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-1-2-tab">
+        {{vdj | safe}}
+      </div>
+      </div>
+    </div>
+  
+  </main>
+
+</body></html>

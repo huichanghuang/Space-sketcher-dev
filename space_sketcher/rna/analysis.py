@@ -19,7 +19,8 @@ class Analysis:
         from space_sketcher.__init__ import __root_dir__
         from space_sketcher.rna.src.matrix_QC import perform_matrix_qc
         
-        str_mkdir('%s/03.analysis'%self.outdir)
+        anadir = '%s/03.analysis'%self.outdir
+        str_mkdir(anadir)
 
         ###Extract spatial barcodes
         # judge file exits
@@ -27,7 +28,7 @@ class Analysis:
         # run perform_matrix_qc
         print(f'\n{get_formatted_time()}\n'
             f'Performing matrix QC.')
-        perform_matrix_qc(self.matrixdir, self.outdir, self.minfeatures, self.mincells,
+        perform_matrix_qc(self.matrixdir, anadir, self.minfeatures, self.mincells,
                         self.nvariables, self.ndims, self.resolution)
         ###log inform to be continued...
 
