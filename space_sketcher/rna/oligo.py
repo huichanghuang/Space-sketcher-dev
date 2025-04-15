@@ -57,7 +57,7 @@ class Oligo:
             self.coordfile,
             f"{self.outdir}/01.count/Solo.out/GeneFull_Ex50pAS/filtered/barcodes.tsv",
             f"{self.outdir}/02.oligo/spatial_umis.csv.gz",
-            f"{self.outdir}/02.oligo/sb_umis_summary-1.temp.csv",
+            f"{self.outdir}/02.oligo/sb_umis_summary.temp.csv",
             )        
 
         #run assign_coordinate
@@ -65,7 +65,7 @@ class Oligo:
             f'Assigning coordinate for each spatial barcode.')
         assign_coordinate(self.coordfile, f"{self.outdir}/02.oligo/spatial_umis.csv.gz",
                           f"{self.outdir}/01.count/Solo.out/GeneFull_Ex50pAS/filtered/barcodes.tsv",
-                          f"{self.outdir}/02.oligo/sb_umis_summary-1.temp.csv",
+                          f"{self.outdir}/02.oligo/sb_library_summary.temp.csv",
                           self.sbwhitelist, f"{self.outdir}/02.oligo")
         ###log inform to be continued...
         
@@ -85,7 +85,7 @@ class Oligo:
                       self.maxumi, self.minumi, 
                       f"{self.outdir}/01.count/Solo.out/GeneFull_Ex50pAS/filtered", 
                       f"{self.outdir}/01.count/Solo.out/GeneFull_Ex50pAS/CellReads.stats", 
-                      self.chemistry, self.eps, self.min_samples, self.threads)        
+                      self.eps, self.min_samples, self.threads)        
         ###log inform to be continued...
 
 def oligo(args):

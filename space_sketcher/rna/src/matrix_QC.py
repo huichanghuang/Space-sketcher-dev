@@ -4,7 +4,7 @@ import argparse
 import pandas as pd
 import scanpy as sc
 import matplotlib.pyplot as plt
-from scipy.sparse import csr_matrix
+# from scipy.sparse import csr_matrix
 from pathlib import Path
 import anndata
 from space_sketcher.tools.utils import add_log
@@ -43,7 +43,7 @@ def read_mtx_matrix(matrix_dir: Path, var_names="gene_symbols"):
     barcodes = pd.read_csv(matrix_dir / f"barcodes.tsv{suffix}", header=None)
     adata.obs_names = barcodes[0].values
     # Add spatial coordinates to AnnData object
-    coord_df = pd.read_csv(path / f"spatial_location_information.txt{suffix}", sep='\t', header=0, index_col=0)
+    coord_df = pd.read_csv(matrix_dir / f"spatial_location_information.txt{suffix}", sep='\t', header=0, index_col=0)
     adata.obsm['spatial'] = coord_df[['xcoord', 'ycoord']].values    
     return adata
 
@@ -141,7 +141,7 @@ def find_markers(adata, outdir):
     marker_genes = pd.DataFrame(adata.uns['rank_genes_groups']['names'])
     if not marker_genes.empty:
         marker_genes.head(30).melt(var_name='Cluster', value_name='gene').to_csv(
-            f"{outdir}/topDEG.txt", sep='\t', index=False)
+            f"{outdir}/top30DEG.txt", sep='\t', index=False)
     else:
         print("No DEG detected!")
 

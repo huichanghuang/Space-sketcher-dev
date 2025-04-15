@@ -11,6 +11,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.sparse import csr_matrix
 import scipy.io
+import random
+import matplotlib.colors as mcolors
+norm = mcolors.Normalize(vmin=0, vmax=3)
 
 
 def read_data(infile):
@@ -178,8 +181,8 @@ def perform_dbscan_parallel(df, eps=150, min_samples=6, n_jobs=4, batch_size=100
     cluster_stats = cb_cluster['cluster'].value_counts().reset_index()
     cluster_stats.columns = ['cluster_type', 'counts']
     cluster_stats['ratio'] = np.round(
-        cluster_stats['counts'] * 100 / cluster_stats['counts'].sum(), 
-        2
+        cluster_stats['counts'] / cluster_stats['counts'].sum(), 
+        4
     )
     
     return coord_df, cb_cluster, cluster_stats
@@ -259,13 +262,10 @@ def generate_plots(df, cb_cluster, subsb_umi_summary, outdir):
     
     return cb_umi_mean_top100
 
-def filter_matrix(matrixdir, coord_df, chemistry, outdir):
+def filter_matrix(matrixdir, coord_df, outdir):
     """Filter matrix based on DBSCAN results"""
     adata = sc.read_10x_mtx(matrixdir, var_names='gene_symbols', cache=True)
-    
-    if chemistry == "leader_v1":
-        coord_df['cb'] = coord_df['cb'].apply(lambda x: f"{x[:10]}_{x[10:20]}")
-    
+
     adata_barcodes = adata.obs_names.values
     cell_barcodes = coord_df['cb'].tolist()
     # 验证barcode交集
@@ -289,41 +289,58 @@ def filter_matrix(matrixdir, coord_df, chemistry, outdir):
 
     
 def generate_summary(cellreads, coord_df, cb_umi_mean_top100, outdir):
-    """Generate summary statistics"""
+    """Generate summary statistics after dbscan filter"""
     cellreadsdata = pd.read_csv(cellreads, sep='\t')
     cellreadsdata = cellreadsdata[cellreadsdata['CB'] != "CBnotInPasslist"]
-    
-    if 'chemistry' in locals() and 'chemistry' == "leader_v1":
-        cell_barcodes = coord_df['cb'].tolist()
-    else:
-        cell_barcodes = coord_df['cb'].tolist()
-    
+
+    cell_barcodes = coord_df['cb'].tolist()
     truecellreads = cellreadsdata[cellreadsdata['CB'].isin(cell_barcodes)]
     
     stats = {
-        'estimated_number_of_cells': len(truecellreads),
-        'unique_reads_in_cells_mapped_to_gene': truecellreads['featureU'].sum(),
-        'fraction_of_unique_reads_in_cells': round(truecellreads['featureU'].sum()/cellreadsdata['featureU'].sum(), 4),
-        'mean_reads_per_cell': round(truecellreads['featureU'].mean(), 0),
-        'median_reads_per_cell': round(truecellreads['featureU'].median(), 0),
-        'umi_in_cells': truecellreads['nUMIunique'].sum(),
-        'mean_umi_per_cell': round(truecellreads['nUMIunique'].mean(), 0),
-        'median_umi_per_cell': round(truecellreads['nUMIunique'].median(), 0),
-        'mean_gene_per_cell': round(truecellreads['nGenesUnique'].mean(), 0),
-        'median_gene_per_cell': round(truecellreads['nGenesUnique'].median(), 0),
-        'median_top100_umi_cell_mean': round(cb_umi_mean_top100['umi_count_mean'].median(), 3),
-        'mean_top100_umi_cell_mean': round(cb_umi_mean_top100['umi_count_mean'].mean(), 3)
+        'Cells with Certain Location': len(truecellreads),
+        'Unique Reads in Cells Mapped to Gene': truecellreads['featureU'].sum(),
+        'Fraction of Unique Reads in Cells': round(truecellreads['featureU'].sum()/cellreadsdata['featureU'].sum(), 4),
+        'Mean Reads per Cell': round(truecellreads['featureU'].mean(), 0),
+        'Median Reads per Cell': round(truecellreads['featureU'].median(), 0),
+        'UMIs in Cells': truecellreads['nUMIunique'].sum(),
+        'Fraction of UMIs in Cells': round(truecellreads['nUMIunique'].sum()/cellreadsdata['nUMIunique'].sum(), 4),
+        'Mean UMI per Cell': round(truecellreads['nUMIunique'].mean(), 0),
+        'Median UMI per Cell': round(truecellreads['nUMIunique'].median(), 0),
+        'Mean Gene per Cell': round(truecellreads['nGenesUnique'].mean(), 0),
+        'Median Gene per Cell': round(truecellreads['nGenesUnique'].median(), 0),
+        'Median top100 Spatial UMI Mean per Cell': round(cb_umi_mean_top100['umi_count_mean'].median(), 3),
+        'Mean top100 Spatial UMI Mean per Cell': round(cb_umi_mean_top100['umi_count_mean'].mean(), 3)
     }
     
-    with open(os.path.join(outdir, "filtered_cells.summary.csv"), 'w') as f:
+    
+    with open(os.path.join(outdir, "dbscan_filtered_cells.summary.csv"), 'w') as f:
         for k, v in stats.items():
             f.write(f"{k},{v}\n")
 
 
-def dbscan_filter(infile, outdir, maxumi, minumi, matrixdir, cellreads, chemistry, eps, min_samples, n_jobs):
+def sb_umi_distribution(df, cbs, cluster_type, outdir):
+    fig = plt.figure(figsize=(24,30))
+    for i, cb in enumerate(cbs):
+        df_cb = df[df["cb"] == cb]
+        ax = fig.add_subplot(4, 5, i+1, projection='3d')
+        ax.scatter(df_cb["xcoord"], df_cb["ycoord"], df_cb["umi_count"], c=df_cb["umi_count"], cmap='Blues', norm=norm)
+        ax.set_xlim(0, 10000)
+        ax.set_ylim(0, 10000)
+        ax.set_title(cb, fontsize=10)
+        ax.set_xlabel('X', fontsize=10)
+        ax.set_ylabel('Y', fontsize=10)
+        ax.set_zlabel('UMI_count', fontsize=10)
+    plt.suptitle(cluster_type, fontsize=16)
+    plt.tight_layout()
+    outpic = os.path.join(outdir, cluster_type+".png")
+    plt.savefig(outpic)
+    print("Finish ploting "+outpic)
+    return
+
+
+def dbscan_filter(infile, outdir, maxumi, minumi, matrixdir, cellreads, eps, min_samples, n_jobs):
     os.makedirs(outdir, exist_ok=True)
     # Process data
-    
     df = read_data(infile)
     filtered_df, subsb_umi_summary = filter_by_umi(df, maxumi, minumi)
     coord_df, cb_cluster, cluster_stats = perform_dbscan_parallel(filtered_df, eps, min_samples, n_jobs)
@@ -338,8 +355,31 @@ def dbscan_filter(infile, outdir, maxumi, minumi, matrixdir, cellreads, chemistr
     cb_umi_mean_top100.to_csv(os.path.join(outdir, "cb_umi_mean_knee_plot.temp.txt"), sep='\t', index=False)
 
     # Filter matrix and generate final outputs
-    filter_matrix(matrixdir, coord_df, chemistry, outdir)
+    filter_matrix(matrixdir, coord_df, outdir)
     generate_summary(cellreads, coord_df, cb_umi_mean_top100, outdir)
+
+    ###Plot sb-umi distribution of each cluster type
+    singlecluster_cb, multicluster_cb, nocluster_cb = [], [], []
+    if "single-cluster" in cb_cluster["cluster"].unique():
+        singlecluster_cb = cb_cluster[cb_cluster["cluster"] == "single-cluster"]["cb"].tolist()
+    if "multi-cluster" in cb_cluster["cluster"].unique():
+        multicluster_cb = cb_cluster[cb_cluster["cluster"] == "multi-cluster"]["cb"].tolist()
+    if "no-cluster" in cb_cluster["cluster"].unique():
+        nocluster_cb = cb_cluster[cb_cluster["cluster"] == "no-cluster"]["cb"].tolist()
+    
+    if len(singlecluster_cb) > 20:
+        singlecluster_cb = random.sample(singlecluster_cb, 20)
+    if len(multicluster_cb) > 20:
+        multicluster_cb = random.sample(multicluster_cb, 20)
+    if len(nocluster_cb) > 20:
+        nocluster_cb = random.sample(nocluster_cb, 20)
+
+    cluster_cbs = [singlecluster_cb, multicluster_cb, nocluster_cb]
+    cluster_types = ["single-cluster", "multi-cluster", "no-cluster"]
+    for cbs, cluster_type in zip(cluster_cbs, cluster_types):
+        if len(cbs) == 0:
+            continue
+        sb_umi_distribution(df, cbs, cluster_type, outdir)
 
 
 def parse_args():
@@ -414,6 +454,6 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
-    dbscan_filter(args.infile, args.outdir, args.maxumi, args.minumi, 
-                  args.matrixdir, args.cellreads, args.chemistry, 
+    dbscan_filter(args.infile, args.outdir, args.maxumi, 
+                  args.minumi, args.matrixdir, args.cellreads, 
                   args.eps, args.min_samples, args.n_jobs)
