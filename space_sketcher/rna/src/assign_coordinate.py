@@ -120,6 +120,8 @@ def parse_args():
         type=str,
         help='The output directory'
         )
+    args = parse_args()
+    return args
     
 
 if __name__=='__main__':
