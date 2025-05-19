@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 import anndata
 from space_sketcher.tools.utils import add_log
+import numpy as np
 
 # Custom color palette
 MY36COLORS = [
@@ -137,34 +138,21 @@ def generate_plots(adata, outdir):
 def find_markers(adata, outdir):
     """Find differentially expressed genes."""
     sc.tl.rank_genes_groups(adata, 'leiden', method='wilcoxon', pts=True, n_genes=30)
-    
-    marker_genes = pd.DataFrame(adata.uns['rank_genes_groups']['names'])
+    # 提取所有相关信息
+    marker_genes = sc.get.rank_genes_groups_df(
+        adata, group=None, key="rank_genes_groups"
+    )
+    marker_genes.columns = ["cluster", "gene", "scores", "log2FC", "pvals", "pvals_adj", "pct_nz_group", "pct_nz_reference"]
     if not marker_genes.empty:
-        marker_genes.head(30).melt(var_name='Cluster', value_name='gene').to_csv(
-            f"{outdir}/top30DEG.txt", sep='\t', index=False)
+        marker_genes = marker_genes.groupby('cluster').head(30)
+        marker_genes.to_csv(f"{outdir}/top30DEG.txt", sep='\t', index=False)
     else:
         print("No DEG detected!")
 
-def parse_args():
-    parser = argparse.ArgumentParser(description='Process spatial transcriptomics matrix data.')
-    parser.add_argument('-m', '--matrixdir', required=True, 
-                       help='Directory containing the matrix (mtx/files) and coordfile')
-    parser.add_argument('-o', '--outdir', required=True,
-                       help='Output directory')
-    parser.add_argument('--mincells', type=int, default=3,
-                       help='Minimum cells per gene')
-    parser.add_argument('--minfeatures', type=int, default=5,
-                       help='Minimum features per cell')
-    parser.add_argument('--nvariables', type=int, default=2000,
-                       help='Number of variable genes')
-    parser.add_argument('--ndims', type=int, default=30,
-                       help='PCA dimensions')
-    parser.add_argument('--resolution', type=float, default=0.5,
-                       help='Clustering resolution')
-    return parser.parse_args()
 
 def perform_matrix_qc(matrixdir, outdir, minfeatures, mincells,
                     nvariables, ndims, resolution):
+    
     os.makedirs(outdir, exist_ok=True)
     # 1. Load data
     adata = read_mtx_matrix(matrixdir)
@@ -182,6 +170,43 @@ def perform_matrix_qc(matrixdir, outdir, minfeatures, mincells,
     # Print parameters
     print(f"Parameters used:\nmincells: {mincells}\nminfeatures: {minfeatures}")
     print(f"nvariables: {nvariables}\nndims: {ndims}\nresolution: {resolution}")
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Process spatial transcriptomics matrix data.')
+    parser.add_argument(
+        '-m', '--matrixdir', 
+        required=True, 
+        help='Directory containing the matrix (mtx/files) and coordfile')
+    parser.add_argument(
+        '-o', '--outdir', 
+        required=True,
+        help='Output directory')
+    parser.add_argument(
+        '-c','--mincells', 
+        type=int, 
+        default=3,
+        help='Minimum cells per gene')
+    parser.add_argument(
+        '-f','--minfeatures', 
+        type=int, 
+        default=5,
+        help='Minimum features per cell')
+    parser.add_argument(
+        '-v', '--nvariables', 
+        type=int, 
+        default=2000,
+        help='Number of variable genes')
+    parser.add_argument(
+        '-d','--ndims', 
+        type=int, 
+        default=30,
+        help='PCA dimensions')
+    parser.add_argument(
+        '-r','--resolution', 
+        type=float, 
+        default=0.5,
+        help='Clustering resolution')
+    return parser.parse_args()
 
 if __name__ == '__main__':
     args = parse_args()

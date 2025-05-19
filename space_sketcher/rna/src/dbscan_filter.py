@@ -288,7 +288,7 @@ def filter_matrix(matrixdir, coord_df, outdir):
     coord_df.to_csv(os.path.join(outmtxdir, "spatial_location_information.txt"), sep='\t', index=False)
 
     
-def generate_summary(cellreads, coord_df, cb_umi_mean_top100, outdir):
+def generate_summary(cellreads, coord_df, cb_umi_mean_top100, cluster_stats, outdir):
     """Generate summary statistics after dbscan filter"""
     cellreadsdata = pd.read_csv(cellreads, sep='\t')
     cellreadsdata = cellreadsdata[cellreadsdata['CB'] != "CBnotInPasslist"]
@@ -312,6 +312,7 @@ def generate_summary(cellreads, coord_df, cb_umi_mean_top100, outdir):
         'Mean top100 Spatial UMI Mean per Cell': round(cb_umi_mean_top100['umi_count_mean'].mean(), 3)
     }
     
+    stats.update(dict(zip(cluster_stats['cluster_type'], cluster_stats['ratio'])))
     
     with open(os.path.join(outdir, "dbscan_filtered_cells.summary.csv"), 'w') as f:
         for k, v in stats.items():
@@ -356,7 +357,7 @@ def dbscan_filter(infile, outdir, maxumi, minumi, matrixdir, cellreads, eps, min
 
     # Filter matrix and generate final outputs
     filter_matrix(matrixdir, coord_df, outdir)
-    generate_summary(cellreads, coord_df, cb_umi_mean_top100, outdir)
+    generate_summary(cellreads, coord_df, cb_umi_mean_top100, cluster_stats, outdir)
 
     ###Plot sb-umi distribution of each cluster type
     singlecluster_cb, multicluster_cb, nocluster_cb = [], [], []

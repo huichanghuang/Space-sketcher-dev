@@ -57,7 +57,8 @@ def downsample_and_calculate(infile, passcb):
     sampling_fractions = [0.0,0.05,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]
     sampling_fractions_length = len(sampling_fractions)
     stats_df = pd.DataFrame(
-        {"Mean Reads per Cell": np.zeros(sampling_fractions_length, np.uint32),         
+        {"Sampling Fraction": np.zeros(sampling_fractions_length, np.float64),
+        "Mean Reads per Cell": np.zeros(sampling_fractions_length, np.uint32),         
         "Median Genes per Cell": np.zeros(sampling_fractions_length, np.uint32),
         "Sequencing Saturation": np.zeros(sampling_fractions_length, np.float64),
         "Total mapped reads": np.zeros(sampling_fractions_length, np.uint32),},
@@ -100,6 +101,7 @@ def downsample_and_calculate(infile, passcb):
         print(f"Finished processing fraction {fraction} at {time.ctime()}, took {endtime - starttime} seconds")
         print(f"Fraction: {fraction}, Saturation: {Saturation}, Median Genes per Cell: {median_genes_per_cell}, Mean Reads per Cell: {mean_reads_per_cell}")
         
+        stats_df.loc[fraction, "Sampling Fraction"] = fraction
         stats_df.loc[fraction, "Sequencing Saturation"] = Saturation
         stats_df.loc[fraction, "Mean Reads per Cell"] = mean_reads_per_cell
         stats_df.loc[fraction, "Median Genes per Cell"] = median_genes_per_cell
@@ -123,7 +125,7 @@ def umi_saturation(ax,table):
             exits.append(table['Mean Reads per Cell'][i])
             
     xnew = np.linspace(table['Mean Reads per Cell'].min(),table['Mean Reads per Cell'].max(),300)
-    smooth = make_interp_spline(table['Mean Reads per Cell'],table['Sequencing Saturation']/100)(xnew)
+    smooth = make_interp_spline(table['Mean Reads per Cell'],table['Sequencing Saturation'])(xnew)
     ax.set_xlim([0, table['Mean Reads per Cell'].max()])
     ax.set_ylim([0, 0.9999])
     ax.xaxis.set_major_formatter(ticker.FuncFormatter(to_percent))
@@ -173,7 +175,7 @@ def plot_saturation(inputfile, outdir):
     return
 
 
-def count_saturation(indir, threads, lines):
+def count_saturation(indir, threads=4, lines=50000000):
 
     prepare_readinfo(indir, threads, lines)
 
@@ -189,11 +191,11 @@ def count_saturation(indir, threads, lines):
 
     filterbarcodes = load_filter_barcodes(os.path.join(indir, "Solo.out/GeneFull_Ex50pAS/filtered/barcodes.tsv"))
     results = downsample_and_calculate(os.path.join(indir, "readinfo.txt"), filterbarcodes)
-    one_ratio = results[results["sampling_fraction"]==1]
+    one_ratio = results[results["Sampling Fraction"]==1]
 
     ###recalculate the sampling 
     final_res = pd.DataFrame()
-    final_res["sampling_fraction"] = results["sampling_fraction"]
+    final_res["Sampling Fraction"] = results["Sampling Fraction"]
     final_res["Mean Reads per Cell"] = (int(summary["Mean Reads per Cell"])*(results["Mean Reads per Cell"]/int(one_ratio["Mean Reads per Cell"]))).astype(int)
     final_res["Median Genes per Cell"] = (int(summary["Median GeneFull_Ex50pAS per Cell"])*(results["Median Genes per Cell"]/int(one_ratio["Median Genes per Cell"]))).astype(int)
     final_res["Sequencing Saturation"] = round(float(summary["Sequencing Saturation"])*(results["Sequencing Saturation"]/int(one_ratio["Sequencing Saturation"])),3)
