@@ -2,261 +2,364 @@ import os,collections
 import argparse
 import time
 from typing import List
+from space_sketcher.__init__ import __root_dir__
+
 
 class Runpipe:
     def __init__(self, args):
         self.name = args.name
-        self.cDNAr1 = args.cDNAfastq1
-        self.cDNAr2 = args.cDNAfastq2
-        self.oligor1 = args.oligofastq1
-        self.oligor2 = args.oligofastq2
-        self.genomeDir = os.path.abspath(args.genomeDir)
-        
         self.outdir = os.path.abspath(args.outdir)
-        self.threads = args.threads
-        self.chemistry = args.chemistry
-        self.darkreaction = args.darkreaction
-        self.customize = args.customize
+        self.rna1 = args.rna1
+        self.rna2 = args.rna2
+        self.oligor1 = args.oligor1
+        self.oligor2 = args.oligor2
+        self.genomeDir = os.path.abspath(args.genomeDir)
+        self.coordfile = args.coordfile
+        self.chemistry = args.chemistry        
+        self.mapparams = args.mapparams
+        self.threads = args.threads        
         self.calling_method = args.calling_method
-        self.expectcells = args.expectcells
-        self.forcecells = args.forcecells
-        
-        self.process: List[str] = args.process.split(",")
-        self.no_introns = args.no_introns
-        self.end5 = args.end5
+        self.linker1 = args.linker1
+        self.linker2 = args.linker2
+        self.sbstart = args.sbstart
+        self.maxumi = args.maxumi
         self.minumi = args.minumi
-        self.outunmappedreads = args.outunmappedreads
-        
+        self.eps = args.eps
+        self.min_samples = args.min_samples
+        self.minfeatures = args.minfeatures
+        self.mincells = args.mincells
+        self.ndims = args.ndims
+        self.nvariables = args.nvariables
+        self.resolution = args.resolution
+        self.dev = args.dev
+        self.nobam = args.nobam
+
+        self.cbwhitelist = (
+            args.cbwhitelist
+            if args.cbwhitelist is not None
+            else os.path.join(__root_dir__, 
+                              f"data/cbwhitelist/{self.chemistry}/cbwhitelist.txt")
+        )
+        self.sbwhitelist = (
+            args.sbwhitelist
+            if args.sbwhitelist is not None
+            else os.path.join(__root_dir__, 
+                              "data/sbwhitelist/sbwhitelist.txt")
+        )
+        self.reference = (
+            args.reference
+            if args.reference is not None
+            else os.path.basename(os.path.basename(self.genomeDir))
+        )
+
     def runpipe(self):
-        print("test run")
+
         ### import lib
-        from space_sketcher.tools.utils import str_mkdir,judgeFilexits,read_json,start_print_cmd,bin_path
-        from space_sketcher.__init__ import __root_dir__
+        from space_sketcher.tools.utils import (
+            str_mkdir, 
+            judgeFilexits,
+            execute_and_log,
+            bin_path,
+            rm_temp,
+        )
+        
+        print("test run")
+        ### run       
+        judgeFilexits(
+            self.rna1,
+            self.rna2,
+            self.oligor1,
+            self.oligor2,
+            self.genomeDir,
+            self.coordfile,
+            self.cbwhitelist,
+            self.sbwhitelist
+            )
 
-        # ### run
-        judgeFilexits('%s/ref.json'%self.genomeDir)
-        indexConfig = read_json('%s/ref.json'%self.genomeDir)
-        genomeDir = indexConfig['genomeDir']
-        gtf = indexConfig['gtf']
-        chrmt = indexConfig['chrmt']
-        species = indexConfig['species']
-        mtgenes = indexConfig['mtgenes']
-        judgeFilexits(self.cDNAr1,self.cDNAr2,self.oligor1,self.oligor2,genomeDir,gtf)
-        if mtgenes != "None":
-            judgeFilexits(mtgenes)
+        print(bin_path())
+        count_cmd = [
+            f"{bin_path()}/space-sketcher rna count",
+            f"--name {self.name}",
+            f"--outdir {self.outdir}",
+            f"--rna1 {self.rna1}",
+            f"--rna2 {self.rna2}",
+            f"--chemistry {self.chemistry}",
+            f"--cbwhitelist {self.cbwhitelist}",
+            f"--mapparams {self.mapparams}",
+            f"--threads {self.threads}",
+            f"--genomeDir {self.genomeDir}",
+            f"--calling_method {self.calling_method}",
+        ]
+        count_cmd  = ' '.join(count_cmd) 
 
-        # data_cmd = [
-        #     f"{bin_path()}/dnbc4tools rna data",
-        #     f"--cDNAfastq1 {self.cDNAr1}",
-        #     f"--cDNAfastq2 {self.cDNAr2}",
-        #     f"--oligofastq1 {self.oligor1}",
-        #     f"--oligofastq2 {self.oligor2}",
-        #     f"--threads {self.threads}",
-        #     f"--name {self.name}",
-        #     f"--chemistry {self.chemistry}",
-        #     f"--darkreaction {self.darkreaction}",
-        #     f"--outdir {self.outdir}",
-        #     f"--genomeDir {genomeDir}",
-        #     f"--gtf {gtf}",
-        #     f"--chrMT {chrmt}"
-        # ]
-        # if self.customize:
-        #     data_cmd += ['--customize %s'%self.customize]
-        # if self.no_introns:
-        #     data_cmd += ['--no_introns']
-        # if self.end5:
-        #     data_cmd += ['--end5']
-        # if self.outunmappedreads:
-        #     data_cmd += ['--outunmappedreads']
-        # data_cmd = ' '.join(data_cmd)
+        oligo_cmd = [
+            f"{bin_path()}/space-sketcher rna oligo",
+            f"--name {self.name}",
+            f"--outdir {self.outdir}",
+            f"--oligor1 {self.oligor1}",
+            f"--oligor2 {self.oligor2}",
+            f"--sbwhitelist {self.sbwhitelist}",
+            f"--cbwhitelist {self.cbwhitelist}",
+            f"--chemistry {self.chemistry}",
+            f"--linker1 {self.linker1}",
+            f"--linker2 {self.linker2}",
+            f"--threads {self.threads}",
+            f"--coordfile {self.coordfile}",
+            f"--sbstart {self.sbstart}",
+            f"--maxumi {self.maxumi}",
+            f"--minumi {self.minumi}",
+            f"--eps {self.eps}",
+            f"--min_samples {self.min_samples}",
+        ]
+        oligo_cmd  = ' '.join(oligo_cmd) 
 
-        # count_cmd = [
-        #     f"{bin_path()}/dnbc4tools rna count",
-        #     f"--name {self.name}",
-        #     f"--calling_method {self.calling_method}",
-        #     f"--expectcells {self.expectcells}", 
-        #     f"--threads {self.threads}",
-        #     f"--outdir {self.outdir}"
-        #     ]
-        # if self.forcecells:
-        #     count_cmd += ['--forcecells %s'%self.forcecells]
-        # if self.minumi:
-        #     count_cmd += ['--minumi %s'%self.minumi]
-        # count_cmd  = ' '.join(count_cmd)
-                
-
-        # analysis_cmd = [
-        #     f'{bin_path()}/dnbc4tools rna analysis',
-        #     f"--name {self.name}",
-        #     f"--outdir {self.outdir}",
-        #     f"--species {species}",
-        #     f"--mtgenes {mtgenes}"
-        # ]
-        # analysis_cmd  = ' '.join(analysis_cmd)
+        analysis_cmd = [
+            f'{bin_path()}/space-sketcher rna analysis',
+            f"--name {self.name}",
+            f"--outdir {self.outdir}",
+            f"--minfeatures {self.minfeatures}",
+            f"--mincells {self.mincells}",
+            f"--ndims {self.ndims}",
+            f"--nvariables {self.nvariables}",
+            f"--resolution {self.resolution}",
+        ]
+        analysis_cmd  = ' '.join(analysis_cmd)
         
         
-        # report_cmd = [
-        #     f'{bin_path()}/dnbc4tools rna report',
-        #     f'--name {self.name}',
-        #     f"--species {species}",
-        #     f"--threads {self.threads}",
-        #     f"--outdir {self.outdir}"
-        # ]
-        # if self.no_introns:
-        #     report_cmd += ['--no_introns']
-        # if self.end5:
-        #     report_cmd += ['--end5']
-        # report_cmd = ' '.join(report_cmd)
-
-       
-        # # Assemble the list of commands to execute based on requested stages
-        # # Append corresponding commands to cmdlist based on keywords present in `self.process`
-        # allowed_processes = {'data', 'count', 'analysis', 'report'}
-        # if not all(process in allowed_processes for process in self.process):
-        #     raise ValueError("Invalid process name(s) detected. Allowed names are: data, count, analysis, report.")
+        report_cmd = [
+            f'{bin_path()}/space-sketcher rna report',
+            f'--name {self.name}',
+            f"--outdir {self.outdir}",
+            f"--reference {self.reference}",
+            f"--chemistry {self.chemistry}",
+            f"--dev {self.dev}",
+        ]
+        report_cmd = ' '.join(report_cmd)
         
-        # cmdlist = collections.OrderedDict()
-        # if 'data' in self.process:
-        #     cmdlist['data'] = data_cmd
-        # if 'count' in self.process:
-        #     cmdlist['count'] = count_cmd
-        # if 'analysis' in self.process:
-        #     cmdlist['analysis'] = analysis_cmd
-        # if 'report' in self.process:
-        #     cmdlist['report'] = report_cmd
+        cmdlist = collections.OrderedDict()
+        cmdlist['count'] = count_cmd
+        cmdlist['oligo'] = oligo_cmd
+        cmdlist['analysis'] = analysis_cmd
+        cmdlist['report'] = report_cmd
 
-        # start_time = time.time()
-        # str_mkdir('%s/log'%os.path.join(self.outdir,self.name))
-        # for pipe,pipecmd in cmdlist.items():
-        #     #logging_call(pipecmd,pipe,os.path.join(self.outdir,self.name))
-        #     start_print_cmd(pipecmd,os.path.join(self.outdir,self.name))
-        # end_time = time.time()
+        logdir = os.path.join(self.outdir,self.name)
+        str_mkdir(logdir)
+        start_time = time.time()
+        for pipe, pipecmd in cmdlist.items():
+            execute_and_log(pipecmd, pipe, logdir)
+        
+        end_time = time.time()
+        analysis_time = end_time - start_time
+        analysis_time_minutes, analysis_time_seconds = divmod(analysis_time, 60)
+        analysis_time_hours, analysis_time_minutes = divmod(analysis_time_minutes, 60)
 
-        # analysis_time = end_time - start_time
-        # analysis_time_minutes, analysis_time_seconds = divmod(analysis_time, 60)
-        # analysis_time_hours, analysis_time_minutes = divmod(analysis_time_minutes, 60)
+        print(f'\nAnalysis Finished')
+        print(f'Elapsed Time: {int(analysis_time_hours)} hours {int(analysis_time_minutes)} minutes {int(analysis_time_seconds)} seconds')
 
-        # print(f'\nAnalysis Finished')
-        # print(f'Elapsed Time: {int(analysis_time_hours)} hours {int(analysis_time_minutes)} minutes {int(analysis_time_seconds)} seconds')
-
-
+        ###remove bamfile if no bam
+        bamfile = os.path.join(self.outdir,self.name,"01.count/Aligned.sortedByCoord.out.bam")
+        if self.nobam and os.path.exists(bamfile):
+            rm_temp(bamfile)
 
 def run(args):
     Runpipe(args).runpipe()
 
 def helpInfo_run(parser):
     parser.add_argument(
-        '--name', 
-        metavar='<SAMPLE_ID>',
-        help='User-defined sample ID.', 
+        '-n','--name', 
+        metavar='STR',
+        help='Sample name.', 
         type=str,
         required=True
         )
     parser.add_argument(
-        '--cDNAfastq1', 
-        metavar='<FQ1FILES>',
-        help='Paths to the raw R1 FASTQ files of the cDNA library.', 
-        required=True
-        )
-    parser.add_argument(
-        '--cDNAfastq2', 
-        metavar='<FQ2FILES>',
-        help='Paths to the raw R2 FASTQ files of the cDNA library.', 
-        required=True
-        )
-    parser.add_argument(
-        '--oligofastq1', 
-        metavar='<FQ1FILES>',
-        help='Paths to the raw R1 FASTQ files of the oligo library.',
-        required=True
-        )
-    parser.add_argument(
-        '--oligofastq2', 
-        metavar='<FQ2FILES>',
-        help='Paths to the raw R2 FASTQ files of the oligo library.',
-        required=True
-        )
-    parser.add_argument(
-        '--genomeDir',
-        type=str, 
-        metavar='<DATABASE>',
-        help='Path to the directory containing genome files.',
-        required=True
-        )
-    parser.add_argument(
-        '--outdir', 
-        metavar='<OUTDIR>',
-        help='Output directory, [default: current directory].', 
+        '-o', '--outdir', 
+        metavar='PATH',
+        help='Output diretory, [default: current directory].', 
         default=os.getcwd()
         )
     parser.add_argument(
-        '--threads',
+        '-r1', '--rna1',
+        metavar='FASTQ',
+        help='RNA R1 fastq file, use commas to separate multiple files.', 
+        required=True
+        )
+    parser.add_argument(
+        '-r2', '--rna2',
+        metavar='FASTQ',
+        help='RNA R2 fastq file, use commas to separate multiple files, the files order needs to be consistent with rna1.', 
+        required=True
+        )
+    parser.add_argument(
+        '-o1', '--oligor1', 
+        metavar='FASTQ',
+        help='oligo R1 fastq file, use commas to separate multiple files.', 
+        required=True
+        )
+    parser.add_argument(
+        '-o2', '--oligor2', 
+        metavar='FASTQ',
+        help='oligo R2 fastq file, use commas to separate multiple files, the files order needs to be consistent with cDNAfastq1.', 
+        required=True
+        )
+    parser.add_argument(
+        '-g', '--genomeDir',
+        type=str, 
+        metavar='PATH',
+        help='Path to the directory where genome files are stored.',
+        required=True
+        )
+    parser.add_argument(
+        '-cf', '--coordfile', 
+        metavar='FILE', 
+        type=str,
+        required=True,
+        help='The coordinate file, in which each spatial barcode with a exact x,y coordinate.'
+        )
+    parser.add_argument(
+        '-cb', '--cbwhitelist',
+        metavar='FILE',
+        help='Path to the cell barcode whitelist file.'
+        )
+    parser.add_argument(
+        '-sb','--sbwhitelist', 
+        metavar='FILE',
+        help='Path to the spatial barcode whitelist file.'
+        ) 
+    parser.add_argument(
+        '--chemistry',
+        metavar='STR',
+        choices=["10X","leader_v1","other"],
+        help='Chemistry version, can be "10X", "leader_v1", "other". If set to other, needs to be used with --mapparams. [default: leader_v1].',
+        default='leader_v1'
+        )
+    parser.add_argument(
+        '--mapparams',
+        metavar='STR',
+        help='Additional STAR mapping parameters. must be provide while setting chemistry to other.',
+        default='None'
+        )
+    parser.add_argument(
+        '-t', '--threads',
         type=int, 
-        metavar='<CORENUM>',
+        metavar='INT',
         default=4,
-        help='Number of threads used for analysis, [default: 4].'
+        help='Number of threads to use, [default: 4].'
         )
     parser.add_argument(
         '--calling_method',
-        metavar='<CELLCALLING>',
-        choices=["barcoderanks","emptydrops"],
-        help='Cell calling method, choose from barcoderanks and emptydrops, [default: emptydrops].', 
-        default='emptydrops'
+        metavar='STR',
+        choices=["CellRanger2.2","EmptyDrops_CR"],
+        help='Cell calling method, Choose from CellRanger2.2 and EmptyDrops_CR, [default: EmptyDrops_CR].', 
+        default='EmptyDrops_CR'
         )
     parser.add_argument(
-        '--expectcells',
-        metavar='<CELLNUM>',
-        help='Expected number of recovered cells, [default: 3000].', 
-        default=3000
+        '--linker1',
+        metavar='STR',
+        help='linker1 sequence between spatial barcode part1 and part2, [default: TCTTCAGCGTTCCCGAGATCGGACGATCATGGG].',
+        default='TCTTCAGCGTTCCCGAGATCGGACGATCATGGG'
         )
     parser.add_argument(
-        '--forcecells',
-        metavar='<CELLNUM>',
-        help='Force pipeline to use a specific number of cells.', 
+        '--linker2',
+        metavar='STR',
+        help='linker2 sequence between spatial barcode part2 and part3, [default: CAAGTATGCAGCGCGCTCAAGCACGTGGAT].',
+        default='CAAGTATGCAGCGCGCTCAAGCACGTGGAT'
+        )
+    parser.add_argument(
+        '--sbstart', 
+        metavar='STRING', 
+        type=str,
+        help='The spatial barcode start postion, default: auto',
+        default='auto'
+        )
+    parser.add_argument(
+        '--maxumi',
+        metavar='INT',
+        type=int,
+        default=5000,
+        help='Maximum UMI count threshold for spatial barcodes filtering, [default: 5000]'
         )
     parser.add_argument(
         '--minumi',
-        metavar='<MINUMI>',
-        help=argparse.SUPPRESS,
+        metavar='INT',
+        type=int,
+        default=2,
+        help='Minimum UMI count threshold for spatial barcodes filtering, [default: 2]'
         )
     parser.add_argument(
-        '--chemistry',
-        metavar='<CHEMISTRY>',
-        choices=["scRNAv1HT","scRNAv2HT","scRNAv3HT","auto"],
-        help='Chemistry version. Automatic detection recommended , [default: auto].',
-        default='auto'
+        '--eps',
+        metavar='FLOAT',
+        type=float,
+        default=150.0,
+        help='DBSCAN epsilon parameter (maximum distance between points), [default: 150]'
         )
     parser.add_argument(
-        '--darkreaction',
-        metavar='<DARKCYCLE>',
-        help='Sequencing dark cycles. Automatic detection recommended, [default: auto].', 
-        default='auto'
+        '--min_samples',
+        metavar='INT',
+        type=int,
+        default=6,
+        help='DBSCAN min_samples parameter (minimum points to form cluster), [default: 6]'
+        )    
+    parser.add_argument(
+        '--minfeatures',
+        type=int, 
+        metavar='INT',
+        help='Minimum features per cell. default: 5',
+        default=5
         )
     parser.add_argument(
-        '--customize',
-        metavar='<STRUCTURE>',
-        help='Customize whitelist and readstructure files in JSON format for cDNA and oligo.'
+        '--mincells',
+        type=int, 
+        metavar='INT',
+        help='Minimum cells per gene. default: 3',
+        default=3
         )
     parser.add_argument(
-        '--process', 
-        metavar='<ANALYSIS_STEPS>',
-        help='Custom analysis steps to skip unnecessary processes, [default: data,count,analysis,report].',
-        type=str,
-        default='data,count,analysis,report'
+        '--ndims',
+        type=int, 
+        metavar='INT',
+        help='PCA dimensions. default: 30',
+        default=30
         )
     parser.add_argument(
-        '--no_introns', 
-        action='store_true',
-        help='Intron reads are not included in the expression matrix.'
+        '--nvariables',
+        type=int, 
+        metavar='INT',
+        help='Number of variable genes. default: 2000',
+        default=2000
         )
     parser.add_argument(
-        '--end5', 
-        action='store_true',
-        help='Perform 5\'-end single-cell transcriptome analysis.'
+        '--resolution',
+        type=float, 
+        metavar='FLOAT',
+        help='Clustering resolution. default: 0.5',
+        default=0.5
         )
     parser.add_argument(
-        '--outunmappedreads',
-        action='store_true',
-        help=argparse.SUPPRESS,
+        '--reference',
+        type=str, 
+        metavar='STR',
+        help='Reference name. default: directory name of genomedir'
         )
+    parser.add_argument(
+        '--dev',
+        type=lambda x: x.lower() == 'true',
+        choices=[True, False],
+        default=True,
+        help='Development mode, selected from [False, True],(default: True)'
+    )
+    parser.add_argument(
+        '--nobam',
+        type=lambda x: x.lower() == 'true',
+        choices=[True, False],
+        default=True,
+        help='remove bamfile after finish running, selected from [False, True], default=True.'
+    )
+    parser.add_argument(
+        '--velo',
+        type=lambda x: x.lower() == 'true',
+        choices=[True, False],
+        default=True,
+        help='Run STARsolo Velocyto, selected from [False, True], default=True.'
+    )
     return parser

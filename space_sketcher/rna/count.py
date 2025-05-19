@@ -14,6 +14,7 @@ class Count:
         self.mapparams = args.mapparams
         self.genomeDir = args.genomeDir
         self.calling_method = args.calling_method
+        self.velo = args.velo
         # self.expectcells = args.expectcells
         # self.forcecells = args.forcecells
         # self.minumi = args.minumi
@@ -32,6 +33,11 @@ class Count:
             self.cbwhitelist = gunzip(self.cbwhitelist)
 
         mapping_params = ""
+        if self.velo:
+            mapping_params += "--soloFeatures GeneFull_Ex50pAS Velocyto "
+        else:
+            mapping_params += "--soloFeatures GeneFull_Ex50pAS "
+                    
         if self.chemistry == "10X":
             mapping_params += "--soloType CB_UMI_Simple "
             mapping_params += "--soloCBstart 1 --soloCBlen 16 --soloUMIstart 17 --soloUMIlen 12 "
@@ -43,12 +49,13 @@ class Count:
             mapping_params += "--soloCBmatchWLtype EditDist_2 "
             mapping_params += f"--soloCBwhitelist {self.cbwhitelist} {self.cbwhitelist} "
         elif self.chemistry == "other":
-            if self.mapparams == "":
+            if self.mapparams == 'None':
                 logger.info("Please check if chemistry and mapparams provided in proper way!")
         else:
             logger.info("Not available chemistry")
 
-        mapping_params += self.mapparams
+        if not self.mapparams == 'None':
+            mapping_params += self.mapparams
 
         return mapping_params
         
@@ -57,7 +64,6 @@ class Count:
         from space_sketcher.tools.utils import str_mkdir, judgeFilexits
         from space_sketcher.__init__ import __root_dir__
         from space_sketcher.rna.src.saturation import count_saturation
-
         ### run
         judgeFilexits(
             self.rna1,
@@ -76,7 +82,6 @@ class Count:
         STAR_cmd = (
             f"{__root_dir__}/software/STAR "
             f"--runMode alignReads "
-            "--soloFeatures GeneFull_Ex50pAS "
             "--quantMode GeneCounts "
             f"--soloCellFilter {self.calling_method} "
             "--outFilterScoreMin 30 "
@@ -98,29 +103,30 @@ class Count:
             "--outBAMsortingThreadN 6 "
         )
 
-        subprocess.check_call(STAR_cmd, shell=True)
-        ###change output directory permissions
-        chmod_cmd = f"chmod -R a+r {rnadir}/Solo.out && chmod a+x $(find {rnadir}/Solo.out -type d)"
-        subprocess.check_call(chmod_cmd, shell=True)
-
-        (Path(self.outdir) / ".STAR.done").touch()
+        if not os.path.exists(Path(self.outdir) / ".STAR.done"):
+            subprocess.check_call(STAR_cmd, shell=True)
+            ###change output directory permissions
+            chmod_cmd = f"chmod -R a+r {rnadir}/Solo.out && chmod a+x $(find {rnadir}/Solo.out -type d)"
+            subprocess.check_call(chmod_cmd, shell=True)
+            (Path(self.outdir) / ".STAR.done").touch()
+        else:
+            print(".STAR.done exits, skip running STAR.")
 
         ###calculate saturation
         count_saturation(rnadir, self.threads)
 
         ###Prepare barcode rank file for RNA knee plot
         judgeFilexits(
-            f"{self.outdir}/01.count/Solo.out/GeneFull_Ex50pAS/raw",
-            f"{self.outdir}/01.count/Solo.out/GeneFull_Ex50pAS/filtered/barcodes.tsv",
+            f"{rnadir}/Solo.out/GeneFull_Ex50pAS/raw",
+            f"{rnadir}/Solo.out/GeneFull_Ex50pAS/filtered/barcodes.tsv",
             )
         
         import scanpy as sc
-        from scipy.io import mmread
         import pandas as pd
 
-        truecells = pd.read_csv(f"{self.outdir}/01.count/Solo.out/GeneFull_Ex50pAS/filtered/barcodes.tsv", header=None)[0].tolist()
+        truecells = pd.read_csv(f"{rnadir}/Solo.out/GeneFull_Ex50pAS/filtered/barcodes.tsv", header=None)[0].tolist()
         adata = sc.read_10x_mtx(
-            f"{self.outdir}/01.count/Solo.out/GeneFull_Ex50pAS/raw",
+            f"{rnadir}/Solo.out/GeneFull_Ex50pAS/raw",
             var_names='gene_symbols',
             cache=True
         )
@@ -131,14 +137,16 @@ class Count:
         umi_counts['is_cell_barcode'] = umi_counts['barcode'].isin(truecells).astype(int)
         umi_counts = umi_counts.sort_values('UMI', ascending=False)
         umi_counts['rank'] = range(1, len(umi_counts)+1)
-        umi_counts.to_csv(os.path.join(self.outdir, 'cell_rna_umi.rank.txt'), sep='\t', index=False)
+        umi_counts.to_csv(os.path.join(rnadir, 'cell_rna_umi.rank.txt'), sep='\t', index=False)
+
+        (Path(self.outdir) / ".count.done").touch()
 
 
 def count(args):
     Count(args).run()
 
 
-def helpInfo_data(parser):
+def helpInfo_count(parser):
     parser.add_argument(
         '-n','--name', 
         metavar='STR',
@@ -181,7 +189,7 @@ def helpInfo_data(parser):
         '-m', '--mapparams',
         metavar='STR',
         help='Additional STAR mapping parameters. must be provide while setting chemistry to other.',
-        default=''
+        default='None',
         )
     parser.add_argument(
         '-t', '--threads',
@@ -198,12 +206,19 @@ def helpInfo_data(parser):
         required=True
         )
     parser.add_argument(
-        '--calling_method',
+        '-ca', '--calling_method',
         metavar='STR',
         choices=["CellRanger2.2","EmptyDrops_CR"],
         help='Cell calling method, Choose from CellRanger2.2 and EmptyDrops_CR, [default: EmptyDrops_CR].', 
         default='EmptyDrops_CR'
         )
+    parser.add_argument(
+        '-v', '--velo',
+        type=lambda x: x.lower() == 'true',
+        choices=[True, False],
+        default=True,
+        help='Run STARsolo Velocyto, selected from [False, True], default=True.'
+    )
     # parser.add_argument(
     #     '--expectcells',
     #     metavar='INT',

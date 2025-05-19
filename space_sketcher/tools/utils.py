@@ -10,8 +10,10 @@ import base64
 import subprocess
 from datetime import datetime
 from pathlib import Path
-# from dnbc4tools.__init__ import __root_dir__
-from __init__ import __root_dir__
+from datetime import timedelta
+from functools import wraps
+from typing import Union, List
+from space_sketcher.__init__ import __root_dir__
 
 def add_log(func):
     """
@@ -49,8 +51,8 @@ def csv2dict(filename: Path | str, sep=","):
     return dict(zip(df.iloc[:, 0], df.iloc[:, 1]))
 
 # Extracted common path construction logic into a separate function
-def get_common_path_part():  
-    return '/'.join(str(__root_dir__).split('/')[0:-4])
+def get_common_path_part():
+    return '/'.join(str(__root_dir__).split('/')[0:-1])
 
 # Use os.makedirs with exist_ok=True instead of os.system
 # Construct target path using os.path.join for better portability
@@ -83,7 +85,7 @@ def change_path():
 
 # Construct bin path using os.path.join for better portability
 def bin_path():
-    return os.path.join(get_common_path_part(), 'bin')  
+    return os.path.join(get_common_path_part(), '.venv/bin')  
     
 def rm_temp(*args):
     """
@@ -116,63 +118,67 @@ def get_formatted_time():
     formatted_time = current_time.strftime('%Y-%m-%d %H:%M:%S')
     return formatted_time
 
-def construct_logfile_path(log_dir):
-    """Constructs the logfile path."""
-    today = time.strftime('%Y%m%d', time.localtime(time.time()))
-    return f'{log_dir}/log/{today}.txt'
 
-def validate_log_dir(log_dir):
-    """Validates the log directory."""
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir, exist_ok=True)
-    if not os.access(log_dir, os.W_OK):
-        raise ValueError(f"Log directory '{log_dir}' is not writable.")
-
-def setup_logging(name, log_dir):
-    """Sets up logging configuration."""
-    validate_log_dir(log_dir)
-    logfile = construct_logfile_path(log_dir)
+def execute_and_log(
+    command: Union[str, List[str]],  # 支持字符串或列表形式的命令
+    name: str,                      # 日志标识（如模块名）
+    log_dir: str,                   # 日志目录
+    shell: bool = True,             # 是否使用shell执行
+    log_level: str = "INFO"         # 日志级别（INFO/ERROR）
+) -> None:
+    """
+    执行命令并将结果记录到日志（不返回输出）
     
+    Args:
+        command: 要执行的命令
+        name:    日志名称（用于区分来源）
+        log_dir: 日志存储目录
+        shell:   是否使用shell模式执行
+        log_level: 日志级别（INFO/ERROR）
+    """
+    # 确保日志目录存在
+    os.makedirs(log_dir, exist_ok=True)
+    
+    # 设置日志（所有命令记录到同一文件）
+    log_file = os.path.join(log_dir, "command_execution.log")
     logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
     
+    # 避免重复添加handler
     if not logger.handlers:
-        logger.setLevel(logging.INFO)
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        
-        file_handler = logging.FileHandler(logfile, encoding="utf8")
-        file_handler.setLevel(logging.DEBUG)
-        file_handler.setFormatter(formatter)
-        
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setLevel(logging.ERROR)
-        console_handler.setFormatter(formatter)
-        
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
         logger.addHandler(file_handler)
-        logger.addHandler(console_handler)
-    
-    return logger
-
-def logging_call(popenargs, name, log_dir):
-    logger = setup_logging(name, log_dir)
-    logger.info('Executing command: %s', ''.join(popenargs))
-    try:
-        output = subprocess.check_output(popenargs, shell=True, stderr=subprocess.STDOUT, universal_newlines=True)
-        logger.info('%s', output)
-    except subprocess.CalledProcessError as e:
-        logger.error('Command failed with exit code %d', e.returncode)
-        logger.error('%s', e.output)
-        raise e
-    except Exception as e:
-        raise e
-
-def start_print_cmd(arg, log_dir):
-    validate_log_dir(log_dir)
-    logfile = construct_logfile_path(log_dir)
-    logging.basicConfig(filename=logfile,level=logging.INFO, format='%(message)s')
-    logger = logging.getLogger()
-    logger.info(arg)
-    subprocess.check_call(arg, shell=True)
-
+        
+    # 判断命令是否需要执行
+    if not os.path.exists(os.path.join(log_dir, f".{name}.done")):
+        # 记录执行的命令
+        cmd_str = command if isinstance(command, str) else " ".join(command)
+        logger.info("[COMMAND] %s", cmd_str)
+        # 执行命令并记录结果
+        try:
+            result = subprocess.run(
+                command,
+                shell=shell,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                universal_newlines=True
+            )
+            if result.stdout:
+                logger.info("[OUTPUT]\n%s", result.stdout)
+            if result.stderr:
+                logger.info("[ERROR OUTPUT]\n%s", result.stderr)
+                
+        except subprocess.CalledProcessError as e:
+            logger.error("[FAILED] Exit code: %d\nCommand: %s\nError Output:\n%s", 
+                        e.returncode, cmd_str, e.stderr)
+            raise
+        except Exception as e:
+            logger.error("[UNEXPECTED ERROR] %s", str(e))
+            raise
+    else:
+        logger.info(f".{name}.done already exits, skip running {name}")
 
 class StdoutAdapter:
     def __init__(self, handler):
@@ -377,33 +383,3 @@ def create_index(threads,bam,outdir):
         bam_index_cmd = '%s/software/samtools index -c -@ %s %s'%(__root_dir__,threads,bam)
         logging_call(bam_index_cmd,'count',outdir)
 
-from datetime import timedelta
-from functools import wraps
-def add_log(func):
-    """
-    logging start and done.
-    """
-    logFormatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
-
-    module = func.__module__
-    name = func.__name__
-    logger_name = f"{module}.{name}"
-    logger = logging.getLogger(logger_name)
-    logger.setLevel(logging.INFO)
-
-    consoleHandler = logging.StreamHandler(sys.stderr) ##标准输出
-    consoleHandler.setFormatter(logFormatter)
-    logger.addHandler(consoleHandler)
-
-    @wraps(func) #在装饰器前加@wraps(func)能帮助保留原有函数的名称和文档字符串
-    def wrapper(*args, **kwargs):
-        logger.info(f"{name} start...")
-        start = time.time()
-        result = func(*args, **kwargs) ###执行函数
-        end = time.time()
-        used = timedelta(seconds=end - start)
-        logger.info(f"{name} done. time used: {used}")
-        return result 
-    return wrapper

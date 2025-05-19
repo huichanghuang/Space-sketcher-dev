@@ -35,29 +35,29 @@ def assign_coordinate(coordfile, sb_umis, true_cbs, summaryfile, sbwlfile, outdi
     ###summary statistic
     summary = csv2dict(summaryfile)
     summary["Valid Spatial Reads in Cells"] = truecell_umis["Read_Count"].sum()
-    summary["Fraction of Valid Spatial Reads in Cells"] = round(summary["Valid Spatial Reads in Cell"]/\
+    summary["Fraction of Valid Spatial Reads in Cells"] = round(summary["Valid Spatial Reads in Cells"]/\
                                                                summary["Valid Spatial Reads"], 4)
-    summary["Valid Spatial UMIs in Cell"] = len(truecell_umis)
-    summary["Fraction of Valid Spatial UMIs in Cells"] = round(summary["Valid Spatial UMIs in Cell"]/\
+    summary["Valid Spatial UMIs in Cells"] = len(truecell_umis)
+    summary["Fraction of Valid Spatial UMIs in Cells"] = round(summary["Valid Spatial UMIs in Cells"]/\
                                                                summary["Valid Spatial UMIs"], 4)
 
     coordf = pd.read_csv(coordfile, header=0)
     coordf.columns = ["SUB_SB", "x", "y"]
-    summary["Total Spatial Barcodes with Location in Chip"] = len(coordf)
+    summary["Total Spatial Barcodes with Location on Chip"] = len(coordf)
     
     sbwhitelist = readlines(sbwlfile)
     sbwhitelist_modified = list(map(lambda x: x[:10]+x[12:18], sbwhitelist))
     filtered_coordf = coordf[coordf["SUB_SB"].isin(sbwhitelist_modified)]
     filtered_coordf_dedup = filtered_coordf.drop_duplicates(subset='SUB_SB') ##根据Spatial_Barcode去重
-    summary["Unique Valid Spatial Barcodes with Location in Chip"] = len(filtered_coordf_dedup) ##unique and in whitelist
-    summary["Fraction of Unique Valid Spatial Barcodes with Location in Chip"] = round(summary["Unique Valid Spatial Barcodes with Location in Chip"]/\
-                                                                                       summary["Total Spatial Barcodes with Location in Chip"], 4)
+    summary["Unique Valid Spatial Barcodes with Location on Chip"] = len(filtered_coordf_dedup) ##unique and in whitelist
+    summary["Fraction of Unique Valid Spatial Barcodes with Location on Chip"] = round(summary["Unique Valid Spatial Barcodes with Location on Chip"]/\
+                                                                                       summary["Total Spatial Barcodes with Location on Chip"], 4)
 
     ###merge coordfile and sb_umis
     mergedf = pd.merge(truecell_umis, filtered_coordf_dedup, on="SUB_SB", how="inner")
-    summary["Spatial Reads in Cells with Location in Chip"] = mergedf["Read_Count"].sum()
-    summary["Fraction of Spatial Reads in Cells with Location in Chip"] = round(summary["Spatial Reads in Cell with Location in Chip"]/\
-                                                                               summary["Valid Spatial Reads in Cell"],4)
+    summary["Spatial Reads in Cells with Location on Chip"] = mergedf["Read_Count"].sum()
+    summary["Fraction of Spatial Reads in Cells with Location on Chip"] = round(summary["Spatial Reads in Cells with Location on Chip"]/\
+                                                                               summary["Valid Spatial Reads in Cells"],4)
 
     mergedf_dropped = mergedf.drop("Read_Count", axis=1)
     mergedf_dropped["UMI_count"] = mergedf_dropped.groupby(['Cell_Barcode', 'SUB_SB'])['UMI'].transform('nunique')

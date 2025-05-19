@@ -1,20 +1,16 @@
 import sys, argparse
 import textwrap, importlib
-
-# from space_sketcher.__init__ import __version__, __category__
-# from space_sketcher.tools.text import help_text, sum_help
-
-from __init__ import __version__, __category__
-from tools.text import help_text, sum_help
-
+from space_sketcher.__init__ import __version__, __category__
+from space_sketcher.tools.text import help_text, sum_help
 
 def safe_import_module(category, pipe):
     try:
-        # return importlib.import_module("space_sketcher.%s.%s" % (category, pipe))
-        return importlib.import_module("%s.%s" % (category, pipe))
+        return importlib.import_module("space_sketcher.%s.%s" % (category, pipe))
+        # return importlib.import_module("%s.%s" % (category, pipe))
     except ImportError as e:
         print(f"Error: Failed to import 'space_sketcher.{category}.{pipe}'. {e}", file=sys.stderr)
         sys.exit(1)
+
 
 def safe_getattr(module, attr_name):
     try:
@@ -34,8 +30,8 @@ def category_pipe(pipe):
     Returns:
         list[str]: The list of pipes within the specified category.
     """
-    # package = importlib.import_module("space_sketcher.%s.__init__"%pipe)
-    package = importlib.import_module("%s.__init__"%pipe)
+    package = importlib.import_module("space_sketcher.%s.__init__"%pipe)
+    # package = importlib.import_module("%s.__init__"%pipe)
     pipelist = package._pipe
     return pipelist
 

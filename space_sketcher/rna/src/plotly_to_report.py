@@ -14,7 +14,7 @@ def cross_plot(crossfile):
     fig.update_traces({'opacity': 0.5, 'marker':{'color':'lightgray','size':3.5}}, selector={'name': 'Multiplet'})
 
     fig.update_layout(
-        width=600, height=500,
+        # width=600, height=500,
         plot_bgcolor='white', ###set the background color
         margin=dict(l=20, r=20, t=30, b=20), ###set the margin of the plot
         title=dict(text="Cell UMI Counts", font=dict(size=15),x=0.5,y=0.99),
@@ -136,7 +136,7 @@ def plot_barcode_ranks(kneefile, _type="RNA"):
         yaxis = dict(
             type="log", title=f"{_type} UMI counts", gridcolor="whitesmoke",
             linewidth=1, fixedrange= True, color="black", linecolor="black"),
-        height= 500, width= 500,
+        # height= 500, width= 500,
         plot_bgcolor='rgba(0,0,0,0)',hovermode='closest',paper_bgcolor='white',
         legend = dict(
             x=0.75,y=0.99,traceorder="normal",
@@ -154,42 +154,66 @@ def plot_barcode_ranks(kneefile, _type="RNA"):
 
 
 def saturation_plot(saturationfile):
-    saturantion_df = pd.read_csv(saturationfile, header=0, sep = "\t")
-    x, y = saturantion_df["Mean Reads per Cell"], saturantion_df["Sequencing Saturation"]/100
-    if len(saturantion_df) > 2:
-        xnew = np.linspace(x.min(),x.max(),50)
-        ynew = make_interp_spline(x,y)(xnew)
-    else:
-        xnew = x
-        ynew = y
-        
-    fig = px.line(x=xnew, y=ynew)
-    fig.update_traces(line_color='cornflowerblue', line_width=3)
-    fig.add_hline(y=0.9, line_width=1, line_dash="dash", line_color="black")
-    fig.update_layout(
-        width=500, height=500,
-        plot_bgcolor='white', ###set the background color
-        margin=dict(l=20, r=20, t=30, b=20),
-        title=dict(text="Sequencing Saturation", font=dict(size=15),x=0.5,y=0.99),
-        showlegend=False) ###set the margin of the plot
-    # Update xaxis properties
-    fig.update_xaxes(
-        mirror=True,
-        ticks='outside',
-        showline=True,
-        linecolor='black',
-        gridcolor='whitesmoke',
-        title_text = "Total mapped reads",)
-    fig.update_yaxes(
-        mirror=True,
-        ticks='outside',
-        showline=True,
-        linecolor='black',
-        gridcolor='whitesmoke',
-        title_text = "Sequencing Saturation",
-        range = [0,1])
+    """序列饱和度绘制
 
-    return fig
+    Args:
+        saturationfile: 序列饱和度文件
+    """
+    df = pd.read_csv(saturationfile, sep = "\t")
+    # 添加一行 0 值
+    df = pd.concat(
+        [pd.DataFrame([[0.0] * len(df.columns)], columns=df.columns), df],
+        ignore_index=True,
+    )
+    fig1 = px.line(df, x="Mean Reads per Cell", y="Sequencing Saturation")
+    fig1.update_traces(line_color="cornflowerblue", line_width=3)
+    fig1.add_hline(y=0.9, line_width=1, line_dash="dash", line_color="black")
+    fig1.update_layout(
+        plot_bgcolor="white",
+        margin=dict(l=20, r=20, t=30, b=20),
+        showlegend=False,
+    )
+    # Update xaxis properties
+    fig1.update_xaxes(
+        mirror=True,
+        ticks="outside",
+        showline=True,
+        linecolor="black",
+        gridcolor="whitesmoke",
+        title_text="Mean Reads per Cell",
+    )
+    fig1.update_yaxes(
+        mirror=True,
+        ticks="outside",
+        showline=True,
+        linecolor="black",
+        gridcolor="whitesmoke",
+        title_text="Sequencing Saturation",
+        range=[0, 1],
+    )
+
+    fig2 = px.line(df, x="Mean Reads per Cell", y="Median Genes per Cell")
+    fig2.update_traces(line_color="cornflowerblue", line_width=3)
+    fig2.update_layout(
+        plot_bgcolor="white",
+        margin=dict(l=20, r=20, t=30, b=20),
+        showlegend=False,
+    )
+    fig2.update_xaxes(
+        mirror=True,
+        ticks="outside",
+        showline=True,
+        linecolor="black",
+        gridcolor="whitesmoke",
+    )
+    fig2.update_yaxes(
+        mirror=True,
+        ticks="outside",
+        showline=True,
+        linecolor="black",
+        gridcolor="whitesmoke",
+    )
+    return fig1, fig2
 
 my36colors = ['#E5D2DD', '#53A85F', '#F1BB72', '#F3B1A0', '#D6E7A3', '#57C3F3', '#476D87',
                '#E95C59', '#E59CC4', '#AB3282', '#23452F', '#BD956A', '#8C549C', '#585658',
@@ -212,7 +236,7 @@ def distribution_violin(clusterfile, samplename):
     fig.add_trace(go.Figure(data=go.Violin(y=clusterdf["Mito Percentage"], x=clusterdf["sample"], box_visible=True, line_color='black', meanline_visible=True, fillcolor='#F1BB72', opacity=0.6, name='Mito Percentage(%)')).data[0], row=1, col=3)
     
     fig.update_layout(
-        width=1200, height=500,
+        # width=1200, height=500,
         plot_bgcolor='white', ###set the background color
         margin=dict(l=20, r=20, t=30, b=20))
     ##update the axis style
@@ -231,38 +255,66 @@ def distribution_violin(clusterfile, samplename):
         gridcolor='whitesmoke')    
     return fig
 
-def spatial_scatter(_infile, _type = "UMI"):
-    clusterdf = pd.read_csv(_infile, header=0, sep="\t")
-    clusterdf["log_nCount_Spatial"] = np.log(clusterdf["nCount_Spatial"]+1)
-    clusternum = clusterdf["Cluster"].nunique()
-    totalcells = clusterdf.shape[0]
-    for i in range(clusternum):
-        cluster = clusterdf[clusterdf["Cluster"]==i]
-        cluster_percentage = str(round(cluster.shape[0]*100/totalcells, 2))+"%"
-        clusterdf.loc[clusterdf["Cluster"]==i, "percentage"] = cluster_percentage
-        clusterdf.loc[clusterdf["Cluster"]==i, "Clu"] = cluster_percentage
-    ###subset the data to 20000 cells
-    if totalcells > 20000:
-        clusterdf = clusterdf.sample(n=20000, random_state=1)
+def _umap_theme(fig):
+    """
+    白色背景
+    """
+    fig.update_layout(
+        xaxis=dict(
+            mirror=True,
+            gridcolor="whitesmoke",
+            color="black",
+            showline=True,
+            zeroline=True,
+            linewidth=1,
+            linecolor="black",
+            zerolinecolor="whitesmoke",
+        ),
+        yaxis=dict(
+            mirror=True,
+            gridcolor="whitesmoke",
+            linewidth=1,
+            color="black",
+            linecolor="black",
+            zerolinecolor="whitesmoke",
+        ),
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="white",
+    )
+    return fig
 
+
+def spatial_scatter(_infile, _type = "UMI"):
+
+    clusterdf = pd.read_csv(_infile, header=0, sep="\t")
+    clusterdf["log_nUMI"] = np.log(clusterdf["nCount_Spatial"]+1)
+    clusterdf = clusterdf.sort_values(by="Cluster")
+    clusterdf["Pct"] = clusterdf["Cluster"].map(clusterdf["Cluster"].value_counts(normalize=True))
     clusterdf["Cluster"] = clusterdf["Cluster"].astype("category")
     ##sort the clusterdf by the Cluster column
     clusterdf = clusterdf.sort_values(by="Cluster")
-
-    color_map = {}
-    for i in range(len(clusterdf["Cluster"].unique())):
-        color_map[clusterdf["Cluster"].unique()[i]] = my36colors[i]
+    n_cluster = clusterdf["Cluster"].nunique()
+    seq_colors = [my36colors[i] for i in range(n_cluster)]
 
     if _type == "Cluster":
-        plot1 = px.scatter(clusterdf, 
-                           x="xcoord", y="ycoord", 
-                           color="Cluster", hover_data=["percentage"],
-                           color_discrete_map = color_map,
-                           title="Spots colored by Cluster")
-        plot1.update_traces(marker_size=3)
-        plot1.update_layout(
-            autosize=False,
-            width=500, height=500,
+        fig1 = _umap_theme(px.scatter(clusterdf, 
+                                      x="xcoord", 
+                                      y="ycoord", 
+                                      color="Cluster",
+                                      hover_data=["Pct"],
+                                      color_discrete_sequence=seq_colors,
+                                      ))    
+        fig1.update_layout(
+            title=dict(text="Cells Colored by Cluster", font=dict(size=15), x=0.5, y=0.95),
+            legend=dict(
+                title="",
+                borderwidth=0,
+            ),
+        )
+        fig1.update_traces(marker_size=3)
+        ###x, y 轴范围
+        fig1.update_layout(
+            autosize=True,
             plot_bgcolor='white', ###set the background color
             xaxis_tickvals=[0, 2000,4000,6000,8000],
             yaxis_tickvals=[0, 2000,4000,6000,8000],
@@ -274,44 +326,43 @@ def spatial_scatter(_infile, _type = "UMI"):
                 scaleanchor="x",  # y轴比例锚定到x轴
                 scaleratio=1,      # 比例1:1
                 constrain="domain",  # 限制轴范围
-                range=[0, 9399]),          
-            margin=dict(l=20, r=20, t=30, b=20))
-        ##update the axis style
-        plot1.update_xaxes(mirror=True,ticks='outside',showline=True,linecolor='black', gridcolor='whitesmoke')
-        plot1.update_yaxes(mirror=True,ticks='outside',showline=True,linecolor='black', gridcolor='whitesmoke')
-
-        plot2 = px.scatter(clusterdf,
-                            x="UMAP1", y="UMAP2",
-                            color="Cluster", hover_data=["percentage"],
-                            color_discrete_map = color_map,
-                            title="UMAP projection of spots colored by Cluster")
-        plot2.update_traces(marker_size=3)
-        plot2.update_layout(
-            width=500, height=500,
-            plot_bgcolor='white', ###set the background color
-            margin=dict(l=20, r=20, t=30, b=20),
-            xaxis=dict(
-                    constrain="domain"),  # 限制轴范围
-            yaxis=dict(
-                scaleanchor="x",  # y轴比例锚定到x轴
-                scaleratio=1,      # 比例1:1
-                constrain="domain"),  # 限制轴范围                      
+                range=[0, 9399]))
+        
+        fig2 = _umap_theme(
+            px.scatter(
+                clusterdf,
+                x="UMAP1",
+                y="UMAP2",
+                color="Cluster",
+                hover_data=["Pct"],
+                color_discrete_sequence=seq_colors,
             )
-
-        ##update the axis style
-        plot2.update_xaxes(mirror=True,ticks='outside',showline=True,linecolor='black', gridcolor='whitesmoke')
-        plot2.update_yaxes(mirror=True,ticks='outside',showline=True,linecolor='black', gridcolor='whitesmoke')
+        )
+        fig2.update_traces(marker_size=3)
+        fig2.update_layout(
+            title=dict(text="UMAP Projection of Cells Colored by Cluster", font=dict(size=15), x=0.5, y=0.95),
+            legend=dict(
+                title="",
+                borderwidth=0,
+            ),
+        )
     elif _type == "UMI":
-        plot1 = px.scatter(clusterdf, 
-                           x="xcoord", y="ycoord", 
-                           color="log_nCount_Spatial", 
-                           color_continuous_scale=px.colors.sequential.RdBu_r,
-                           title="Spots colored by UMI counts")
-        plot1.update_traces(marker_size=3)
-    
-        plot1.update_layout(
-            autosize=False,
-            width=600, height=500,
+        fig1 = _umap_theme(px.scatter(clusterdf, 
+                                      x="xcoord", 
+                                      y="ycoord", 
+                                      color="log_nUMI",
+                                      ))    
+        fig1.update_layout(
+            title=dict(text="Cells Colored by log(UMI counts)", font=dict(size=15), x=0.5, y=0.95),
+            legend=dict(
+                title="",
+                borderwidth=0,
+            ),
+        )
+        fig1.update_traces(marker_size=3)
+        ###x, y 轴范围
+        fig1.update_layout(
+            autosize=True,
             plot_bgcolor='white', ###set the background color
             xaxis_tickvals=[0, 2000,4000,6000,8000],
             yaxis_tickvals=[0, 2000,4000,6000,8000],
@@ -323,36 +374,29 @@ def spatial_scatter(_infile, _type = "UMI"):
                 scaleanchor="x",  # y轴比例锚定到x轴
                 scaleratio=1,      # 比例1:1
                 constrain="domain",  # 限制轴范围
-                range=[0, 9399]),          
-            margin=dict(l=20, r=20, t=30, b=20))
-        ##update the axis style
-        plot1.update_xaxes(mirror=True,ticks='outside',showline=True,linecolor='black', gridcolor='whitesmoke')
-        plot1.update_yaxes(mirror=True,ticks='outside',showline=True,linecolor='black', gridcolor='whitesmoke')        
-           
-        plot2 = px.scatter(clusterdf, 
-                           x="UMAP1", y="UMAP2", 
-                           color="log_nCount_Spatial", 
-                           color_continuous_scale=px.colors.sequential.RdBu_r,
-                           title="UMAP projection of spots colored by UMI counts")
-        plot2.update_traces(marker_size=3)
-        plot2.update_layout(
-            width=600, height=500,
-            plot_bgcolor='white', ###set the background color
-            margin=dict(l=20, r=20, t=30, b=20),
-            xaxis=dict(
-                    constrain="domain"),  # 限制轴范围
-            yaxis=dict(
-                scaleanchor="x",  # y轴比例锚定到x轴
-                scaleratio=1,      # 比例1:1
-                constrain="domain"),  # 限制轴范围                      
+                range=[0, 9399]))
+        
+        fig2 = _umap_theme(
+            px.scatter(
+                clusterdf,
+                x="UMAP1",
+                y="UMAP2",
+                color="log_nUMI",
             )
-        ##update the axis style
-        plot2.update_xaxes(mirror=True,ticks='outside',showline=True,linecolor='black', gridcolor='whitesmoke')
-        plot2.update_yaxes(mirror=True,ticks='outside',showline=True,linecolor='black', gridcolor='whitesmoke')
+        )
+        fig2.update_traces(marker_size=3)
+        fig2.update_layout(
+            title=dict(text="UMAP Projection of Cells Colored by log(UMI counts)", font=dict(size=15), x=0.5, y=0.95),
+            legend=dict(
+                title="",
+                borderwidth=0,
+            ),
+        )        
     else:
         print("Please input the correct type: UMI or Cluster")
 
-    return plot1, plot2
+    return fig1, fig2
+
 
 def plot_sb_cb_umi_knee(_sb_umi_file, _cb_umi_file):
 
